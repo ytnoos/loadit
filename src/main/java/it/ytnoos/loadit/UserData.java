@@ -14,8 +14,8 @@ import java.util.UUID;
  */
 public class UserData {
 
-    @Nullable private final UUID uuid;
-    @Nullable private final String name;
+    @Nullable protected final UUID uuid;
+    @Nullable protected final String name;
 
     public UserData(@NotNull UUID uuid, @NotNull String name) {
         Preconditions.checkNotNull(uuid);

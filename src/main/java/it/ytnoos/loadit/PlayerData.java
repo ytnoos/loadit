@@ -5,8 +5,8 @@ import org.bukkit.entity.Player;
 
 public class PlayerData {
 
-    private final UserData userData;
-    private final Player player;
+    protected final UserData userData;
+    protected final Player player;
 
     public PlayerData(UserData userData, Player player) {
         this.userData = userData;
