@@ -1,15 +1,9 @@
 package it.ytnoos.loadit;
 
 public enum LoadResult {
-    SAVING_USER,
-    ALREADY_LOADED_PLAYER_PRE,
     ERROR_LOAD_USER,
     PRE_LOGIN_REALLOWED,
     NOT_LOADED,
-    SAVING_PLAYER,
-    ALREADY_LOADED_PLAYER,
-    ERROR_LOAD_PLAYER,
     LOGIN_REALLOWED,
     LOADED,
-    RE_LOAD
 }

@@ -12,10 +12,10 @@ import java.util.UUID;
 
 public class AccessListener implements Listener {
 
-    private final LoaditLoader<?, ?> loader;
-    private final DataContainer<?, ?> container;
+    private final UserLoader<?> loader;
+    private final LoaditDataContainer<?> container;
 
-    public AccessListener(LoaditLoader<?, ?> loader, DataContainer<?, ?> container) {
+    public AccessListener(UserLoader<?> loader, LoaditDataContainer<?> container) {
         this.loader = loader;
         this.container = container;
     }
@@ -28,7 +28,7 @@ public class AccessListener implements Listener {
         //We don't need to load the player since something has disallowed the connection.
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) return;
 
-        LoadResult result = container.insertData(uuid, name).join();
+        LoadResult result = container.loadData(uuid, name);
 
         if (result != LoadResult.LOADED)
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, name));
@@ -39,17 +39,15 @@ public class AccessListener implements Listener {
         UUID uuid = event.getUniqueId();
 
         //It means someone disallowed firstAsync (so we didn't load anything) and then allowed the login again
-        if (!container.isLoading(uuid) && event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED)
+        if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED && !container.hasData(uuid))
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(LoadResult.PRE_LOGIN_REALLOWED, uuid, event.getName()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void lastAsyncPreLogin(AsyncPlayerPreLoginEvent event) {
-        UUID uuid = event.getUniqueId();
-
-        //Player isn't allowed to login anymore so we have to remove his data
-        if (container.isLoading(uuid) && event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED)
-            container.removeLoading(uuid);
+        //Player won't join the server, we clear his offline data
+        if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED)
+            container.removeData(event.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -58,11 +56,11 @@ public class AccessListener implements Listener {
         UUID uuid = player.getUniqueId();
 
         if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
-            container.removeLoading(uuid);
+            container.removeData(uuid);
             return;
         }
 
-        LoadResult result = container.insertPlayerData(player).join();
+        LoadResult result = container.setupPlayer(player);
 
         if (result != LoadResult.LOADED)
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, player.getName()));
@@ -73,16 +71,13 @@ public class AccessListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
-        if (!container.isLoaded(player) && event.getResult() == PlayerLoginEvent.Result.ALLOWED)
+        if (event.getResult() == PlayerLoginEvent.Result.ALLOWED && !container.hasData(uuid))
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(LoadResult.LOGIN_REALLOWED, uuid, player.getName()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void lastLogin(PlayerLoginEvent event) {
-        Player player = event.getPlayer();
-
-        if (container.isLoaded(player) && event.getResult() != PlayerLoginEvent.Result.ALLOWED)
-            container.removeLoaded(player.getUniqueId());
+        if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) container.removeData(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

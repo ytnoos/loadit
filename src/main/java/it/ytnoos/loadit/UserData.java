@@ -1,26 +1,24 @@
 package it.ytnoos.loadit;
 
-import com.google.common.base.Preconditions;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-public class UserData {
+public abstract class UserData extends OfflineUserData {
 
-    protected final UUID uuid;
-    protected final long loadTime = System.currentTimeMillis();
+    protected Player player;
 
-    public UserData(@NotNull UUID uuid) {
-        Preconditions.checkNotNull(uuid);
-
-        this.uuid = uuid;
+    protected UserData(@NotNull UUID uuid) {
+        super(uuid);
     }
 
-    public UUID getUUID() {
-        return uuid;
+    @NotNull
+    public Player getPlayer() {
+        return player;
     }
 
-    public long getLoadTime() {
-        return loadTime;
+    public void setPlayer(Player player) {
+        this.player = player;
     }
 }

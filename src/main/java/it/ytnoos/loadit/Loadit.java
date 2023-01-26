@@ -4,38 +4,36 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.util.Collection;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
-public class Loadit<T extends UserData, V extends PlayerData> {
+public class Loadit<T extends UserData> {
 
     private final Plugin plugin;
-    private final LoaditLoader<T, V> loader;
-    private final DataContainer<T, V> container;
+    private final Settings settings;
+    private final UserLoader<T> loader;
+    private final LoaditDataContainer<T> container;
 
-    public Loadit(Plugin plugin, LoaditLoader<T, V> loader) {
+    public Loadit(Plugin plugin, UserLoader<T> loader) {
+        this(plugin, loader, new SettingsBuilder());
+    }
+
+    public Loadit(Plugin plugin, UserLoader<T> loader, SettingsBuilder builder) {
         this.plugin = plugin;
         this.loader = loader;
+        this.settings = builder.createSettings();
 
-        container = new DataContainer<>(this, loader);
+        container = new LoaditDataContainer<>(this, loader);
     }
 
     public void init() {
-        init(true);
-    }
-
-    public void init(boolean loadOnlines) {
         plugin.getServer().getPluginManager().registerEvents(new AccessListener(loader, container), plugin);
 
-        if (!loadOnlines) return;
+        if (!settings.isLoadOnlines()) return;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            LoadResult result = container.insertData(player.getUniqueId(), player.getName()).join();
+            LoadResult result = container.loadData(player.getUniqueId(), player.getName());
             if (result == LoadResult.LOADED) {
-                result = container.insertPlayerData(player).join();
+                result = container.setupPlayer(player);
                 if (result == LoadResult.LOADED) continue;
             }
 
@@ -47,7 +45,7 @@ public class Loadit<T extends UserData, V extends PlayerData> {
         container.stop();
     }
 
-    public void log(String message) {
+    public void warn(String message) {
         plugin.getLogger().info(() -> "[Loadit] " + message);
     }
 
@@ -55,15 +53,15 @@ public class Loadit<T extends UserData, V extends PlayerData> {
         plugin.getLogger().log(Level.SEVERE, t, () -> "[Loadit] " + message);
     }
 
-    public V getPlayerData(Player player) {
-        return container.getPlayerData(player);
+    public Plugin getPlugin() {
+        return plugin;
     }
 
-    public Collection<V> getPlayersData() {
-        return container.getPlayersData();
+    public Settings getSettings() {
+        return settings;
     }
 
-    public CompletableFuture<Optional<T>> getOfflineData(UUID uuid) {
-        return container.getOfflineData(uuid);
+    public DataContainer<T> getContainer() {
+        return container;
     }
 }
