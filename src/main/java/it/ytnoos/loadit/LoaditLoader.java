@@ -13,8 +13,6 @@ public interface LoaditLoader<T extends UserData, V extends PlayerData> {
 
     T loadUserData(UUID uuid);
 
-    T loadUserData(String name);
-
     void savePlayerData(V playerData);
 
     void batchSavePlayerData(Collection<V> playersData);

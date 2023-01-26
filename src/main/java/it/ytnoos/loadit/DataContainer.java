@@ -4,28 +4,33 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.bukkit.entity.Player;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class DataContainer<T extends UserData, V extends PlayerData> {
 
+    private static final long OLD_DATA_TIME = TimeUnit.MINUTES.toMillis(15);
+    private static final long OLD_DATA_PERIOD = 1;
+
     private final Loadit<T, V> loadit;
     private final LoaditLoader<T, V> loader;
-    private final ExecutorService saveExecutor;
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder().setNameFormat("loadit-executor").build());
 
-    private final Map<UUID, T> loading = new HashMap<>();
-    private final Map<UUID, V> data = new HashMap<>();
+    private final Map<UUID, T> loading = new ConcurrentHashMap<>();
+    private final Map<UUID, V> data = new ConcurrentHashMap<>();
     private final Set<UUID> saving = Collections.newSetFromMap(new ConcurrentHashMap<>()); //ahahahah
 
-    public DataContainer(Loadit<T, V> loadit, LoaditLoader<T, V> loader, int poolSize) {
+    public DataContainer(Loadit<T, V> loadit, LoaditLoader<T, V> loader) {
         this.loadit = loadit;
         this.loader = loader;
-        this.saveExecutor = Executors.newFixedThreadPool(poolSize, new ThreadFactoryBuilder().setNameFormat("loadit-saver").build());
+
+        executor.scheduleWithFixedDelay(() -> loading.values().removeIf(data -> System.currentTimeMillis() - data.getLoadTime() > OLD_DATA_TIME),
+                OLD_DATA_PERIOD,
+                OLD_DATA_PERIOD,
+                TimeUnit.MINUTES);
     }
 
     public void stop() {
-        saveExecutor.shutdown();
+        executor.shutdown();
         saveAll();
 
         loading.clear();
@@ -49,63 +54,69 @@ public class DataContainer<T extends UserData, V extends PlayerData> {
         data.remove(uuid);
     }
 
-    protected LoadResult insertData(UUID uuid, String name) {
-        if (saving.contains(uuid)) return LoadResult.SAVING_USER;
-        if (loading.containsKey(uuid)) return LoadResult.ALREADY_LOADING_PRE;
-        if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED_PLAYER_PRE;
+    protected CompletableFuture<LoadResult> insertData(UUID uuid, String name) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (saving.contains(uuid)) return LoadResult.SAVING_USER;
+            if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED_PLAYER_PRE;
 
-        T userData;
+            T userData = loading.get(uuid);
 
-        try {
-            userData = loader.loadUserData(uuid, name);
-        } catch (Exception e) {
-            return LoadResult.ERROR_LOAD_USER;
-        }
+            if (userData == null) {
+                try {
+                    userData = loader.loadUserData(uuid, name);
+                } catch (Exception e) {
+                    return LoadResult.ERROR_LOAD_USER;
+                }
 
-        if (userData == null) return LoadResult.ERROR_LOAD_USER;
+                if (userData == null) return LoadResult.ERROR_LOAD_USER;
 
-        loading.put(uuid, userData);
-        return LoadResult.LOADED;
+                loading.put(uuid, userData);
+            }
+
+            return LoadResult.LOADED;
+        }, executor);
     }
 
-    protected LoadResult insertPlayerData(Player player) {
-        UUID uuid = player.getUniqueId();
-        T userData = loading.remove(uuid);
+    protected CompletableFuture<LoadResult> insertPlayerData(Player player) {
+        return CompletableFuture.supplyAsync(() -> {
+            UUID uuid = player.getUniqueId();
+            T userData = loading.remove(uuid);
 
-        if (userData == null) return LoadResult.NOT_LOADED;
-        if (saving.contains(uuid)) return LoadResult.SAVING_PLAYER;
-        if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED_PLAYER;
+            if (userData == null) return LoadResult.NOT_LOADED;
+            if (saving.contains(uuid)) return LoadResult.SAVING_PLAYER;
+            if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED_PLAYER;
 
-        V playerData;
+            V playerData;
 
-        try {
-            playerData = loader.loadPlayerData(userData, player);
-        } catch (Exception e) {
-            return LoadResult.ERROR_LOAD_PLAYER;
-        }
+            try {
+                playerData = loader.loadPlayerData(userData, player);
+            } catch (Exception e) {
+                return LoadResult.ERROR_LOAD_PLAYER;
+            }
 
-        if (playerData == null) return LoadResult.ERROR_LOAD_PLAYER;
+            if (playerData == null) return LoadResult.ERROR_LOAD_PLAYER;
 
-        data.put(uuid, playerData);
-        return LoadResult.LOADED;
+            data.put(uuid, playerData);
+            return LoadResult.LOADED;
+        }, executor);
     }
 
     protected void quit(Player player) {
-        String name = player.getName();
-        UUID uuid = player.getUniqueId();
+        CompletableFuture.runAsync(() -> {
+            String name = player.getName();
+            UUID uuid = player.getUniqueId();
 
-        if (loading.remove(uuid) != null) loadit.log(name + " had its user data loaded even if it was online!");
+            if (loading.remove(uuid) != null) loadit.log(name + " had its user data loaded even if it was online!");
 
-        V playerData = data.remove(uuid);
+            V playerData = data.remove(uuid);
 
-        if (playerData == null) {
-            loadit.log("Tried to save " + name + " player data which is not loaded!");
-            return;
-        }
+            if (playerData == null) {
+                loadit.log("Tried to save " + name + " player data which is not loaded!");
+                return;
+            }
 
-        saving.add(uuid);
+            saving.add(uuid);
 
-        saveExecutor.execute(() -> {
             try {
                 loader.savePlayerData(playerData);
             } catch (Exception e) {
@@ -113,45 +124,61 @@ public class DataContainer<T extends UserData, V extends PlayerData> {
             }
 
             saving.remove(uuid);
-        });
+        }, executor);
     }
 
     protected void saveAll() {
-        Collection<V> playersData = data.values();
+        CompletableFuture.runAsync(() -> {
+            Collection<V> playersData = data.values();
 
-        for (V playerData : playersData) {
-            saving.add(playerData.getPlayer().getUniqueId());
-        }
+            for (V playerData : playersData) {
+                saving.add(playerData.getPlayer().getUniqueId());
+            }
 
-        try {
-            loader.batchSavePlayerData(playersData);
-        } catch (Exception e) {
-            loadit.logError(e, "Unable to batch save players");
-        }
+            try {
+                loader.batchSavePlayerData(playersData);
+            } catch (Exception e) {
+                loadit.logError(e, "Unable to batch save players");
+            }
 
-        for (V playerData : playersData) {
-            saving.remove(playerData.getPlayer().getUniqueId());
-        }
+            for (V playerData : playersData) {
+                saving.remove(playerData.getPlayer().getUniqueId());
+            }
+        }, executor).join();
     }
 
     public V getPlayerData(Player player) {
-        return data.get(player.getUniqueId());
+        return getPlayerData(player.getUniqueId());
     }
 
-    public Optional<V> getPlayerData(UUID uuid) {
-        return Optional.ofNullable(data.get(uuid));
+    public V getPlayerData(UUID uuid) {
+        return data.get(uuid);
     }
 
     public Collection<V> getPlayersData() {
         return Collections.unmodifiableCollection(data.values());
     }
 
-    public T getUserData(UUID uuid) {
-        return loader.loadUserData(uuid);
-    }
+    public CompletableFuture<Optional<T>> getOfflineData(UUID uuid) {
+        //online
+        V playerData = getPlayerData(uuid);
+        if (playerData != null) return CompletableFuture.completedFuture(Optional.of((T) playerData.getUserData()));
 
-    public T loadUserData(String name) {
-        return loader.loadUserData(name);
-    }
+        //cached
+        T userData = loading.get(uuid);
+        if (userData != null) return CompletableFuture.completedFuture(Optional.of(userData));
 
+        //load + put on cache
+        return CompletableFuture
+                .supplyAsync(() -> {
+                    T loadedData = loader.loadUserData(uuid);
+                    if (loadedData != null) loading.put(uuid, loadedData); //Put in cache
+
+                    return Optional.ofNullable(loadedData);
+                }, executor)
+                .exceptionally(t -> {
+                    loadit.logError(t, "Unable to get offline data for " + uuid);
+                    return Optional.empty();
+                });
+    }
 }

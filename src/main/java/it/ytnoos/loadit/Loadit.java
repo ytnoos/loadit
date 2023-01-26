@@ -7,6 +7,7 @@ import org.bukkit.plugin.Plugin;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 public class Loadit<T extends UserData, V extends PlayerData> {
@@ -16,14 +17,10 @@ public class Loadit<T extends UserData, V extends PlayerData> {
     private final DataContainer<T, V> container;
 
     public Loadit(Plugin plugin, LoaditLoader<T, V> loader) {
-        this(plugin, loader, 1);
-    }
-
-    public Loadit(Plugin plugin, LoaditLoader<T, V> loader, int poolSize) {
         this.plugin = plugin;
         this.loader = loader;
 
-        container = new DataContainer<>(this, loader, poolSize);
+        container = new DataContainer<>(this, loader);
     }
 
     public void init() {
@@ -36,9 +33,9 @@ public class Loadit<T extends UserData, V extends PlayerData> {
         if (!loadOnlines) return;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            LoadResult result = container.insertData(player.getUniqueId(), player.getName());
+            LoadResult result = container.insertData(player.getUniqueId(), player.getName()).join();
             if (result == LoadResult.LOADED) {
-                result = container.insertPlayerData(player);
+                result = container.insertPlayerData(player).join();
                 if (result == LoadResult.LOADED) continue;
             }
 
@@ -62,11 +59,11 @@ public class Loadit<T extends UserData, V extends PlayerData> {
         return container.getPlayerData(player);
     }
 
-    public Optional<V> getPlayerData(UUID uuid) {
-        return container.getPlayerData(uuid);
-    }
-
     public Collection<V> getPlayersData() {
         return container.getPlayersData();
+    }
+
+    public CompletableFuture<Optional<T>> getOfflineData(UUID uuid) {
+        return container.getOfflineData(uuid);
     }
 }

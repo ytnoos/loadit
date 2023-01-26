@@ -28,7 +28,7 @@ public class AccessListener implements Listener {
         //We don't need to load the player since something has disallowed the connection.
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) return;
 
-        LoadResult result = container.insertData(uuid, name);
+        LoadResult result = container.insertData(uuid, name).join();
 
         if (result != LoadResult.LOADED)
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, name));
@@ -62,7 +62,7 @@ public class AccessListener implements Listener {
             return;
         }
 
-        LoadResult result = container.insertPlayerData(player);
+        LoadResult result = container.insertPlayerData(player).join();
 
         if (result != LoadResult.LOADED)
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, player.getName()));

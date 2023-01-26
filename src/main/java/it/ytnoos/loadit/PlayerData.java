@@ -3,7 +3,7 @@ package it.ytnoos.loadit;
 import com.google.common.base.Objects;
 import org.bukkit.entity.Player;
 
-public class PlayerData {
+public abstract class PlayerData {
 
     protected final UserData userData;
     protected final Player player;
@@ -13,11 +13,14 @@ public class PlayerData {
         this.player = player;
     }
 
-    public UserData getUserData() {
-        return userData;
-    }
+    /**
+     * Override this and cast with your own UserData object
+     *
+     * @return
+     */
+    public abstract UserData getUserData();
 
-    public Player getPlayer() {
+    public final Player getPlayer() {
         return player;
     }
 
