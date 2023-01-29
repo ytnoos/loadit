@@ -1,152 +1,127 @@
 package it.ytnoos.loadit;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 
 public class LoaditDataContainer<T extends UserData> implements DataContainer<T> {
 
     private final Loadit<T> loadit;
-    private final UserLoader<T> loader;
+    private final DataLoader<T> loader;
 
-    private final ConcurrentMap<UUID, T> dataMap = new ConcurrentHashMap<>();
-    private final Set<UUID> saving = Collections.newSetFromMap(new ConcurrentHashMap<>()); //ahahahah
-
+    private final ConcurrentMap<UUID, T> data = new ConcurrentHashMap<>();
     private final ExecutorService loaderExecutor;
-    private final ScheduledExecutorService cleaner;
 
-    public LoaditDataContainer(Loadit<T> loadit, UserLoader<T> loader) {
+    public LoaditDataContainer(Loadit<T> loadit, DataLoader<T> loader) {
         this.loadit = loadit;
         this.loader = loader;
 
-        Settings settings = loadit.getSettings();
-
-        loaderExecutor = Executors.newFixedThreadPool(
-                settings.getLoaderPoolSize(),
-                new ThreadFactoryBuilder().setNameFormat("loadit-loader-" + loadit.getPlugin().getName()).build());
-
-        cleaner = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactoryBuilder().setNameFormat("loadit-cleaner-" + loadit.getPlugin().getName()).build());
-
-        cleaner.scheduleWithFixedDelay(() -> dataMap.values().removeIf(data -> data.isCache() && System.currentTimeMillis() - data.getLoadTime() > settings.getMaximumCacheTime()),
-                settings.getCleanerPeriod(),
-                settings.getCleanerPeriod(),
-                TimeUnit.MILLISECONDS);
+        loaderExecutor = new ForkJoinPool(
+                loadit.getSettings().getParallelism(),
+                ForkJoinPool.defaultForkJoinWorkerThreadFactory, (t, e) -> e.printStackTrace(), false);
     }
 
     public void stop() {
         loaderExecutor.shutdown();
-        cleaner.shutdown();
 
-        saveAll();
+        data.values().forEach(userData -> userData.setPlayer(null));
+        data.clear();
     }
 
-    protected boolean hasData(UUID uuid) {
-        return dataMap.containsKey(uuid);
+    public boolean hasData(UUID uuid) {
+        return data.containsKey(uuid);
     }
 
-    protected void removeData(UUID uuid) {
-        dataMap.remove(uuid);
+    public void removeData(UUID uuid) {
+        data.remove(uuid);
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
-        T offlineData = dataMap.computeIfAbsent(uuid, u -> {
-            if (saving.contains(uuid)) return null;
+        T userData = data.computeIfAbsent(uuid, u -> CompletableFuture.supplyAsync(() -> {
+            try {
+                return loader.getOrCreate(uuid, name);
+            } catch (Exception e) {
+                loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
+                return null;
+            }
+        }, loaderExecutor).join());
 
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    return loader.loadOfflineData(uuid, name);
-                } catch (Exception e) {
-                    loadit.logError(e, "Unable to load " + uuid + " " + name);
-                    return null;
-                }
-            }, loaderExecutor).join();
-        });
-
-        return offlineData != null ? LoadResult.LOADED : LoadResult.ERROR_LOAD_USER;
+        return userData != null ? LoadResult.LOADED : LoadResult.ERROR_LOAD_USER;
     }
 
     protected LoadResult setupPlayer(Player player) {
         UUID uuid = player.getUniqueId();
-        T data = dataMap.get(uuid);
 
-        if (data != null) {
-            data.setPlayer(player);
-            data.setCache(false);
-            return LoadResult.LOADED;
-        }
+        T userData = data.get(uuid);
 
-        return LoadResult.NOT_LOADED;
+        if (userData == null) return LoadResult.NOT_LOADED;
+
+        userData.setPlayer(player);
+
+        return LoadResult.LOADED;
     }
 
     protected void quit(Player player) {
-        UUID uuid = player.getUniqueId();
-
-        if (!saving.add(uuid)) {
-            loadit.warn(uuid + " is already being saved!");
-            return;
-        }
-
-        T data = dataMap.remove(uuid);
-
-        if (data == null) {
-            loadit.warn("Tried to save " + player.getName() + " player data which is not loaded!");
-            saving.remove(uuid);
-            return;
-        }
-
-        loaderExecutor.execute(() -> {
-            try {
-                loader.savePlayerData(data);
-            } catch (Exception e) {
-                loadit.logError(e, "Unable to save " + player.getName() + " data");
-            }
-
-            saving.remove(uuid);
-        });
-    }
-
-    protected void saveAll() {
-        Collection<T> playersData = dataMap.values();
-
-        playersData.forEach(data -> saving.add(data.getUUID()));
-
-        try {
-            loader.batchSavePlayerData(playersData);
-        } catch (Exception e) {
-            loadit.logError(e, "Unable to batch save players");
-        }
-
-        playersData.forEach(data -> saving.remove(data.getUUID()));
-    }
-
-    public T getPlayerData(Player player) {
-        return getPlayerData(player.getUniqueId());
-    }
-
-    public T getPlayerData(UUID uuid) {
-        return dataMap.get(uuid);
-    }
-
-    public Collection<T> getPlayersData() {
-        return Collections.unmodifiableCollection(dataMap.values());
+        data.remove(player.getUniqueId()).setPlayer(null);
     }
 
     @Override
-    public CompletableFuture<Optional<T>> getOfflineData(UUID uuid) {
-        return CompletableFuture.supplyAsync(() -> Optional.ofNullable(dataMap.computeIfAbsent(uuid, u -> {
-            if (saving.contains(uuid)) return null;
+    public T get(Player player) {
+        if (!player.isOnline()) throw new NullPointerException(player.getName() + " is not online!");
+        T userData = data.get(player.getUniqueId());
 
+        if (userData == null || !userData.getPlayer().isPresent())
+            throw new NullPointerException(player.getUniqueId() + " " + player.getName() + " is not stored");
+
+        return userData;
+    }
+
+    @Override
+    public CompletableFuture<Optional<T>> get(UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
-                T data = loader.loadOfflineData(uuid);
-                data.setCache(true);
-                return data;
+                return loader.load(uuid);
             } catch (Exception e) {
-                loadit.logError(e, "Unable to load " + uuid);
-                return null;
+                e.printStackTrace();
+                return Optional.empty();
             }
-        })), loaderExecutor);
+        }, loaderExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Optional<T>> get(String name) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return loader.load(name);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return Optional.empty();
+            }
+        }, loaderExecutor);
+    }
+
+    @Override
+    public Collection<T> get() {
+        return data.values();
+    }
+
+    @Override
+    public Map<Player, T> getOnlines() {
+        Map<Player, T> onlineMap = new HashMap<>();
+
+        for (T userData : data.values()) {
+            userData.getPlayer().ifPresent(player -> onlineMap.put(player, userData));
+        }
+
+        return onlineMap;
+    }
+
+    @Override
+    public void forEachOnline(BiConsumer<Player, T> consumer) {
+        for (T userData : data.values()) {
+            userData.getPlayer().ifPresent(player -> consumer.accept(player, userData));
+        }
     }
 }

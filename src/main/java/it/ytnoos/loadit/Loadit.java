@@ -10,14 +10,14 @@ public class Loadit<T extends UserData> {
 
     private final Plugin plugin;
     private final Settings settings;
-    private final UserLoader<T> loader;
+    private final DataLoader<T> loader;
     private final LoaditDataContainer<T> container;
 
-    public Loadit(Plugin plugin, UserLoader<T> loader) {
+    public Loadit(Plugin plugin, DataLoader<T> loader) {
         this(plugin, loader, new SettingsBuilder());
     }
 
-    public Loadit(Plugin plugin, UserLoader<T> loader, SettingsBuilder builder) {
+    public Loadit(Plugin plugin, DataLoader<T> loader, SettingsBuilder builder) {
         this.plugin = plugin;
         this.loader = loader;
         this.settings = builder.createSettings();
@@ -27,8 +27,6 @@ public class Loadit<T extends UserData> {
 
     public void init() {
         plugin.getServer().getPluginManager().registerEvents(new AccessListener(loader, container), plugin);
-
-        if (!settings.isLoadOnlines()) return;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             LoadResult result = container.loadData(player.getUniqueId(), player.getName());

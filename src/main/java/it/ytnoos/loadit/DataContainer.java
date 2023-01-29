@@ -3,13 +3,28 @@ package it.ytnoos.loadit;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
-public interface DataContainer<T extends UserData> extends OfflineDataContainer<T> {
+public interface DataContainer<T extends UserData> {
 
-    T getPlayerData(Player player);
+    T get(Player player);
 
-    T getPlayerData(UUID uuid);
+    CompletableFuture<Optional<T>> get(UUID uuid);
 
-    Collection<T> getPlayersData();
+    CompletableFuture<Optional<T>> get(String name);
+
+    Collection<T> get();
+
+    Map<Player, T> getOnlines();
+
+    default void forEach(Consumer<T> consumer) {
+        get().forEach(consumer);
+    }
+
+    void forEachOnline(BiConsumer<Player, T> consumer);
 }

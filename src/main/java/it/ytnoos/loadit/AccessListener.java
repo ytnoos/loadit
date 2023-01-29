@@ -12,10 +12,10 @@ import java.util.UUID;
 
 public class AccessListener implements Listener {
 
-    private final UserLoader<?> loader;
+    private final DataLoader<?> loader;
     private final LoaditDataContainer<?> container;
 
-    public AccessListener(UserLoader<?> loader, LoaditDataContainer<?> container) {
+    public AccessListener(DataLoader<?> loader, LoaditDataContainer<?> container) {
         this.loader = loader;
         this.container = container;
     }
