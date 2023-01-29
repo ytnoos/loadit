@@ -52,12 +52,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
         if (userData == null) return LoadResult.ERROR_LOAD_USER;
 
-        if (data.put(uuid, userData) != null) {
-            data.remove(uuid);
-            return LoadResult.ALREADY_LOADED;
-        }
-
-        return LoadResult.LOADED;
+        return data.putIfAbsent(uuid, userData) == null ? LoadResult.LOADED : LoadResult.ALREADY_LOADED;
     }
 
     protected LoadResult setupPlayer(Player player) {
