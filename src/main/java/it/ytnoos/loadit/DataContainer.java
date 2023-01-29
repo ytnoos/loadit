@@ -32,5 +32,7 @@ public interface DataContainer<T extends UserData> {
         accept(name, optional -> optional.ifPresent(consumer));
     }
 
+    void forEach(Consumer<T> consumer);
+
     void forEach(BiConsumer<Player, T> consumer);
 }

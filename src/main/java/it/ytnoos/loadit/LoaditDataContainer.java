@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class LoaditDataContainer<T extends UserData> implements DataContainer<T> {
 
@@ -102,9 +103,12 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
+    public void forEach(Consumer<T> consumer) {
+        data.values().forEach(consumer);
+    }
+
+    @Override
     public void forEach(BiConsumer<Player, T> consumer) {
-        for (T userData : data.values()) {
-            userData.getPlayer().ifPresent(player -> consumer.accept(player, userData));
-        }
+        data.values().forEach(userData -> userData.getPlayer().ifPresent(player -> consumer.accept(player, userData)));
     }
 }

@@ -10,8 +10,8 @@ import java.util.UUID;
 
 public abstract class UserData {
 
-    private final UUID uuid;
-    private final String name;
+    protected final UUID uuid;
+    protected final String name;
 
     private @Nullable Player player;
 
@@ -20,7 +20,7 @@ public abstract class UserData {
         this.name = name;
     }
 
-    public UUID getUuid() {
+    public UUID getUUID() {
         return uuid;
     }
 
@@ -32,7 +32,7 @@ public abstract class UserData {
         return Optional.ofNullable(player);
     }
 
-    public void setPlayer(Player player) {
+    public void setPlayer(@Nullable Player player) {
         this.player = player;
     }
 }
