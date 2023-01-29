@@ -89,6 +89,10 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
     @Override
     public CompletableFuture<Optional<T>> get(UUID uuid) {
+        T userData = data.get(uuid);
+
+        if (userData != null) return CompletableFuture.completedFuture(Optional.of(userData));
+
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return loader.load(uuid);
@@ -101,6 +105,10 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
     @Override
     public CompletableFuture<Optional<T>> get(String name) {
+        for (T userData : data.values()) {
+            if (userData.getName().equals(name)) return CompletableFuture.completedFuture(Optional.of(userData));
+        }
+
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return loader.load(name);
