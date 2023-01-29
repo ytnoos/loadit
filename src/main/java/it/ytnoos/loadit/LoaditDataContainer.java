@@ -2,7 +2,8 @@ package it.ytnoos.loadit;
 
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 
@@ -115,23 +116,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
-    public Collection<T> get() {
-        return Collections.unmodifiableCollection(data.values());
-    }
-
-    @Override
-    public Map<Player, T> getOnlines() {
-        Map<Player, T> onlineMap = new HashMap<>();
-
-        for (T userData : data.values()) {
-            userData.getPlayer().ifPresent(player -> onlineMap.put(player, userData));
-        }
-
-        return onlineMap;
-    }
-
-    @Override
-    public void forEachOnline(BiConsumer<Player, T> consumer) {
+    public void forEach(BiConsumer<Player, T> consumer) {
         for (T userData : data.values()) {
             userData.getPlayer().ifPresent(player -> consumer.accept(player, userData));
         }
