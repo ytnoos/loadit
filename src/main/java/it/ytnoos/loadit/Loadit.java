@@ -43,10 +43,6 @@ public class Loadit<T extends UserData> {
         container.stop();
     }
 
-    public void warn(String message) {
-        plugin.getLogger().info(() -> "[Loadit] " + message);
-    }
-
     public void logError(Throwable t, String message) {
         plugin.getLogger().log(Level.SEVERE, t, () -> "[Loadit] " + message);
     }

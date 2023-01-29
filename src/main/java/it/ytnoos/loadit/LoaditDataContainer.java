@@ -89,14 +89,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
         if (userData != null) return CompletableFuture.completedFuture(Optional.of(userData));
 
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return loader.load(uuid);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return Optional.empty();
-            }
-        }, loaderExecutor);
+        return CompletableFuture.supplyAsync(() -> loader.load(uuid), loaderExecutor);
     }
 
     @Override
@@ -105,14 +98,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
             if (userData.getName().equals(name)) return CompletableFuture.completedFuture(Optional.of(userData));
         }
 
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return loader.load(name);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return Optional.empty();
-            }
-        }, loaderExecutor);
+        return CompletableFuture.supplyAsync(() -> loader.load(name), loaderExecutor);
     }
 
     @Override
