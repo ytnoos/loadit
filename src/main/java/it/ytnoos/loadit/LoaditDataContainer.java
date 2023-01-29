@@ -116,7 +116,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
     @Override
     public Collection<T> get() {
-        return data.values();
+        return Collections.unmodifiableCollection(data.values());
     }
 
     @Override
