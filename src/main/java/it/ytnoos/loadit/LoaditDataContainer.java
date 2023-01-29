@@ -39,16 +39,25 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
-        T userData = data.computeIfAbsent(uuid, u -> CompletableFuture.supplyAsync(() -> {
+        if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED;
+
+        T userData = CompletableFuture.supplyAsync(() -> {
             try {
                 return loader.getOrCreate(uuid, name);
             } catch (Exception e) {
                 loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
                 return null;
             }
-        }, loaderExecutor).join());
+        }, loaderExecutor).join();
 
-        return userData != null ? LoadResult.LOADED : LoadResult.ERROR_LOAD_USER;
+        if (userData == null) return LoadResult.ERROR_LOAD_USER;
+
+        if (data.put(uuid, userData) != null) {
+            data.remove(uuid);
+            return LoadResult.ALREADY_LOADED;
+        }
+
+        return LoadResult.LOADED;
     }
 
     protected LoadResult setupPlayer(Player player) {
