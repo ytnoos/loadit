@@ -5,10 +5,13 @@ import org.bukkit.entity.Player;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public interface DataContainer<T extends UserData> {
+
+    ExecutorService getExecutor();
 
     T get(Player player);
 

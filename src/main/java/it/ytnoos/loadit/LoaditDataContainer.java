@@ -74,6 +74,11 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
+    public ExecutorService getExecutor() {
+        return loaderExecutor;
+    }
+
+    @Override
     public T get(Player player) {
         if (!player.isOnline()) throw new NullPointerException(player.getName() + " is not online!");
         T userData = data.get(player.getUniqueId());
