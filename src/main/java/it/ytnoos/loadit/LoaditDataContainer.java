@@ -108,7 +108,23 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
+    public <E extends Exception> void forEachThrowable(ThrowableConsumer<T, E> consumer) throws E {
+        for (T userData : data.values()) {
+            consumer.accept(userData);
+        }
+    }
+
+    @Override
     public void forEach(BiConsumer<Player, T> consumer) {
         data.values().forEach(userData -> userData.getPlayer().ifPresent(player -> consumer.accept(player, userData)));
+    }
+
+    @Override
+    public <E extends Exception> void forEachThrowable(ThrowableBiConsumer<Player, T, E> consumer) throws E {
+        Player player;
+        for (T userData : data.values()) {
+            player = userData.getPlayer().orElse(null);
+            if (player != null) consumer.accept(player, userData);
+        }
     }
 }

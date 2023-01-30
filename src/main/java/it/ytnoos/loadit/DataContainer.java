@@ -34,5 +34,9 @@ public interface DataContainer<T extends UserData> {
 
     void forEach(Consumer<T> consumer);
 
+    <E extends Exception> void forEachThrowable(ThrowableConsumer<T, E> consumer) throws E;
+
     void forEach(BiConsumer<Player, T> consumer);
+
+    <E extends Exception> void forEachThrowable(ThrowableBiConsumer<Player, T, E> consumer) throws E;
 }
