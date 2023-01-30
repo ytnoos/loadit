@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public interface DataLoader<T extends UserData> {
 
-    T getOrCreate(UUID uuid, String name);
+    Optional<T> getOrCreate(UUID uuid, String name);
 
     Optional<T> load(UUID uuid);
 

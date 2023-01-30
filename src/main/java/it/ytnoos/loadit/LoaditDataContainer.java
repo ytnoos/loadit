@@ -45,7 +45,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
         T userData = CompletableFuture.supplyAsync(() -> {
             try {
-                return loader.getOrCreate(uuid, name);
+                return loader.getOrCreate(uuid, name).orElse(null);
             } catch (Exception e) {
                 loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
                 return null;
