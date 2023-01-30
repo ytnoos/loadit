@@ -5,6 +5,14 @@ plugins {
 group = "it.ytnoos.loadit"
 version = "1.0-SNAPSHOT"
 
+tasks.compileJava {
+    options.release.set(8)
+}
+
+java {
+    withSourcesJar()
+}
+
 repositories {
     mavenCentral()
     maven { url = uri("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") }
