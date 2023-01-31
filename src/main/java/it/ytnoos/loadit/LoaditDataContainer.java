@@ -22,11 +22,21 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
         loaderExecutor = new ForkJoinPool(
                 loadit.getSettings().getParallelism(),
-                ForkJoinPool.defaultForkJoinWorkerThreadFactory, (t, e) -> e.printStackTrace(), false);
+                pool -> {
+                    ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+                    worker.setDaemon(true);
+                    worker.setName("loadit-executor-" + worker.getPoolIndex());
+                    return worker;
+                }, (t, e) -> e.printStackTrace(), false);
     }
 
     public void stop() {
         loaderExecutor.shutdown();
+        try {
+            loaderExecutor.awaitTermination(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         data.values().forEach(userData -> userData.setPlayer(null));
         data.clear();
