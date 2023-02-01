@@ -13,7 +13,7 @@ public interface DataContainer<T extends UserData> {
 
     ExecutorService getExecutor();
 
-    T get(Player player);
+    T getCached(Player player);
 
     CompletableFuture<Optional<T>> get(UUID uuid);
 

@@ -89,7 +89,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
-    public T get(Player player) {
+    public T getCached(Player player) {
         if (!player.isOnline()) throw new NullPointerException(player.getName() + " is not online!");
         T userData = data.get(player.getUniqueId());
 
@@ -101,19 +101,11 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
     @Override
     public CompletableFuture<Optional<T>> get(UUID uuid) {
-        T userData = data.get(uuid);
-
-        if (userData != null) return CompletableFuture.completedFuture(Optional.of(userData));
-
         return CompletableFuture.supplyAsync(() -> loader.load(uuid), loaderExecutor);
     }
 
     @Override
     public CompletableFuture<Optional<T>> get(String name) {
-        for (T userData : data.values()) {
-            if (userData.getName().equals(name)) return CompletableFuture.completedFuture(Optional.of(userData));
-        }
-
         return CompletableFuture.supplyAsync(() -> loader.load(name), loaderExecutor);
     }
 
