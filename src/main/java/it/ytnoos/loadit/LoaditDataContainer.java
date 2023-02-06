@@ -105,6 +105,12 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
+    public void acceptIfCached(Player player, Consumer<T> consumer) {
+        T userData = data.get(player.getUniqueId());
+        if (userData != null) consumer.accept(userData);
+    }
+
+    @Override
     public CompletableFuture<Optional<T>> get(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> loader.load(uuid), loaderExecutor);
     }
