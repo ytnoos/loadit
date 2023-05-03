@@ -65,6 +65,8 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
+        if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED;
+
         for (LoaditLoadListener<T> listener : loadit.getListeners()) {
             listener.onPreLoad(uuid, name);
         }
@@ -73,13 +75,14 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
             T userData = loader.getOrCreate(uuid, name).orElse(null);
             if (userData == null) return LoadResult.ERROR_LOAD_USER;
 
-            data.computeIfAbsent(uuid, u -> {
-                for (LoaditLoadListener<T> listener : loadit.getListeners()) {
-                    listener.onPostLoad(userData);
-                }
+            T previousValue = data.put(uuid, userData);
 
-                return userData;
-            });
+            if (previousValue != null)
+                loadit.getPlugin().getLogger().warning(() -> uuid + " " + name + " was already loaded!");
+
+            for (LoaditLoadListener<T> listener : loadit.getListeners()) {
+                listener.onPostLoad(userData);
+            }
 
             return LoadResult.LOADED;
         } catch (Exception e) {
