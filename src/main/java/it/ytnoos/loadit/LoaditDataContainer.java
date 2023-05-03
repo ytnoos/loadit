@@ -50,13 +50,35 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
     public void removeData(UUID uuid) {
         T userData = data.remove(uuid);
-        if (userData != null) userData.setPlayer(null);
+        if (userData == null) return;
+
+        try {
+            for (LoaditLoadListener<T> listener : loadit.getListeners()) {
+                listener.onUnload(userData);
+            }
+        } catch (Exception e) {
+            loadit.getPlugin().getLogger().log(Level.SEVERE, e, () -> "Error while calling onUnload listener");
+        }
+
+        userData.setPlayer(null);
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
         return data.computeIfAbsent(uuid, u -> {
             try {
-                return loader.getOrCreate(uuid, name).orElse(null);
+                for (LoaditLoadListener<T> listener : loadit.getListeners()) {
+                    listener.onPreLoad(uuid, name);
+                }
+
+                T userData = loader.getOrCreate(uuid, name).orElse(null);
+
+                if (userData != null) {
+                    for (LoaditLoadListener<T> listener : loadit.getListeners()) {
+                        listener.onPostLoad(userData);
+                    }
+                }
+
+                return userData;
             } catch (Exception e) {
                 loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
                 return null;
