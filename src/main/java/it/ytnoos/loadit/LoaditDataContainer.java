@@ -65,26 +65,27 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
-        return data.computeIfAbsent(uuid, u -> {
-            try {
+        for (LoaditLoadListener<T> listener : loadit.getListeners()) {
+            listener.onPreLoad(uuid, name);
+        }
+
+        try {
+            T userData = loader.getOrCreate(uuid, name).orElse(null);
+            if (userData == null) return LoadResult.ERROR_LOAD_USER;
+
+            data.computeIfAbsent(uuid, u -> {
                 for (LoaditLoadListener<T> listener : loadit.getListeners()) {
-                    listener.onPreLoad(uuid, name);
-                }
-
-                T userData = loader.getOrCreate(uuid, name).orElse(null);
-
-                if (userData != null) {
-                    for (LoaditLoadListener<T> listener : loadit.getListeners()) {
-                        listener.onPostLoad(userData);
-                    }
+                    listener.onPostLoad(userData);
                 }
 
                 return userData;
-            } catch (Exception e) {
-                loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
-                return null;
-            }
-        }) != null ? LoadResult.LOADED : LoadResult.ERROR_LOAD_USER;
+            });
+
+            return LoadResult.LOADED;
+        } catch (Exception e) {
+            loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
+            return LoadResult.ERROR_LOAD_USER;
+        }
     }
 
     protected LoadResult setupPlayer(Player player) {
