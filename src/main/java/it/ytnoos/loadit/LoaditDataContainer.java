@@ -1,5 +1,6 @@
 package it.ytnoos.loadit;
 
+import it.ytnoos.loadit.api.*;
 import org.bukkit.entity.Player;
 
 import java.util.Optional;
@@ -17,12 +18,12 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     private final ConcurrentMap<UUID, T> data = new ConcurrentHashMap<>();
     private final ExecutorService loaderExecutor;
 
-    public LoaditDataContainer(Loadit<T> loadit, DataLoader<T> loader) {
+    public LoaditDataContainer(Loadit<T> loadit, DataLoader<T> loader, int parallelism) {
         this.loadit = loadit;
         this.loader = loader;
 
         loaderExecutor = new ForkJoinPool(
-                loadit.getSettings().getParallelism(),
+                parallelism,
                 pool -> {
                     ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
                     worker.setDaemon(true);

@@ -1,5 +1,6 @@
 package it.ytnoos.loadit;
 
+import it.ytnoos.loadit.api.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -8,26 +9,21 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.logging.Level;
 
-public class Loadit<T extends UserData> {
+public class BaseLoadit<T extends UserData> implements Loadit<T> {
 
     private final Plugin plugin;
-    private final Settings settings;
     private final DataLoader<T> loader;
     private final LoaditDataContainer<T> container;
     private final Collection<LoaditLoadListener<T>> listeners = new ArrayList<>();
 
-    public Loadit(Plugin plugin, DataLoader<T> loader) {
-        this(plugin, loader, new SettingsBuilder());
-    }
-
-    public Loadit(Plugin plugin, DataLoader<T> loader, SettingsBuilder builder) {
+    public BaseLoadit(Plugin plugin, DataLoader<T> loader, int parallelism) {
         this.plugin = plugin;
         this.loader = loader;
-        this.settings = builder.createSettings();
 
-        container = new LoaditDataContainer<>(this, loader);
+        container = new LoaditDataContainer<>(this, loader, parallelism);
     }
 
+    @Override
     public void init() {
         plugin.getServer().getPluginManager().registerEvents(new AccessListener(loader, container), plugin);
 
@@ -42,30 +38,32 @@ public class Loadit<T extends UserData> {
         }
     }
 
+    @Override
     public void stop() {
         container.stop();
     }
 
+    @Override
     public void addListener(LoaditLoadListener<T> listener) {
         listeners.add(listener);
     }
 
+    @Override
     public void logError(Throwable t, String message) {
         plugin.getLogger().log(Level.SEVERE, t, () -> "[Loadit] " + message);
     }
 
+    @Override
     public Plugin getPlugin() {
         return plugin;
     }
 
-    public Settings getSettings() {
-        return settings;
-    }
-
+    @Override
     public DataContainer<T> getContainer() {
         return container;
     }
 
+    @Override
     public Collection<LoaditLoadListener<T>> getListeners() {
         return listeners;
     }

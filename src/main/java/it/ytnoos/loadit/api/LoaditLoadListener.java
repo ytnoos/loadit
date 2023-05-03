@@ -1,4 +1,4 @@
-package it.ytnoos.loadit;
+package it.ytnoos.loadit.api;
 
 import java.util.UUID;
 

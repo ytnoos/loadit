@@ -1,4 +1,4 @@
-package it.ytnoos.loadit;
+package it.ytnoos.loadit.api;
 
 public enum LoadResult {
     ERROR_LOAD_USER,

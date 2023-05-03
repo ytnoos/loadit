@@ -1,4 +1,4 @@
-package it.ytnoos.loadit;
+package it.ytnoos.loadit.api;
 
 @FunctionalInterface
 public interface ThrowableConsumer<T, E extends Exception> {

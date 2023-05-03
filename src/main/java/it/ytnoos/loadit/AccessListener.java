@@ -1,5 +1,7 @@
 package it.ytnoos.loadit;
 
+import it.ytnoos.loadit.api.DataLoader;
+import it.ytnoos.loadit.api.LoadResult;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
