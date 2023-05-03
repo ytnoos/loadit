@@ -7,6 +7,7 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 
 public class LoaditDataContainer<T extends UserData> implements DataContainer<T> {
 
@@ -35,11 +36,12 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
         try {
             loaderExecutor.awaitTermination(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            loadit.getPlugin().getLogger().log(Level.SEVERE, e, () -> "Interrupted await termination");
+            Thread.currentThread().interrupt();
+        } finally {
+            data.values().forEach(userData -> userData.setPlayer(null));
+            data.clear();
         }
-
-        data.values().forEach(userData -> userData.setPlayer(null));
-        data.clear();
     }
 
     public boolean hasData(UUID uuid) {
@@ -47,40 +49,29 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     public void removeData(UUID uuid) {
-        data.remove(uuid);
+        T userData = data.remove(uuid);
+        if (userData != null) userData.setPlayer(null);
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
-        if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED;
-
-        T userData = CompletableFuture.supplyAsync(() -> {
+        return data.computeIfAbsent(uuid, u -> {
             try {
                 return loader.getOrCreate(uuid, name).orElse(null);
             } catch (Exception e) {
                 loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
                 return null;
             }
-        }, loaderExecutor).join();
-
-        if (userData == null) return LoadResult.ERROR_LOAD_USER;
-
-        return data.putIfAbsent(uuid, userData) == null ? LoadResult.LOADED : LoadResult.ALREADY_LOADED;
+        }) != null ? LoadResult.LOADED : LoadResult.ERROR_LOAD_USER;
     }
 
     protected LoadResult setupPlayer(Player player) {
-        UUID uuid = player.getUniqueId();
-
-        T userData = data.get(uuid);
+        T userData = data.get(player.getUniqueId());
 
         if (userData == null) return LoadResult.NOT_LOADED;
 
         userData.setPlayer(player);
 
         return LoadResult.LOADED;
-    }
-
-    protected void quit(Player player) {
-        data.remove(player.getUniqueId()).setPlayer(null);
     }
 
     @Override

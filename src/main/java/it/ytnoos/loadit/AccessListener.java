@@ -82,6 +82,6 @@ public class AccessListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void quit(PlayerQuitEvent event) {
-        container.quit(event.getPlayer());
+        container.removeData(event.getPlayer().getUniqueId());
     }
 }
