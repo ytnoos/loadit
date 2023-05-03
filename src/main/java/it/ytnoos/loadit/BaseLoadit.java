@@ -16,7 +16,7 @@ public class BaseLoadit<T extends UserData> implements Loadit<T> {
     private final LoaditDataContainer<T> container;
     private final Collection<LoaditLoadListener<T>> listeners = new ArrayList<>();
 
-    public BaseLoadit(Plugin plugin, DataLoader<T> loader, int parallelism) {
+    protected BaseLoadit(Plugin plugin, DataLoader<T> loader, int parallelism) {
         this.plugin = plugin;
         this.loader = loader;
 

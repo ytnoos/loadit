@@ -1,6 +1,9 @@
-package it.ytnoos.loadit.api;
+package it.ytnoos.loadit;
 
-import it.ytnoos.loadit.BaseLoadit;
+import it.ytnoos.loadit.api.DataContainer;
+import it.ytnoos.loadit.api.DataLoader;
+import it.ytnoos.loadit.api.LoaditLoadListener;
+import it.ytnoos.loadit.api.UserData;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
