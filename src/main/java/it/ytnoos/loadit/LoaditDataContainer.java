@@ -113,7 +113,6 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
 
     @Override
     public T getCached(Player player) {
-        if (!player.isOnline()) throw new NullPointerException(player.getName() + " is not online!");
         T userData = data.get(player.getUniqueId());
 
         if (userData == null || !userData.getPlayer().isPresent())
