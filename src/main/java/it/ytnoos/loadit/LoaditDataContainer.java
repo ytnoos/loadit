@@ -122,9 +122,14 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     }
 
     @Override
-    public void acceptIfCached(Player player, Consumer<T> consumer) {
-        T userData = data.get(player.getUniqueId());
+    public void acceptIfCached(UUID uuid, Consumer<T> consumer) {
+        T userData = data.get(uuid);
         if (userData != null) consumer.accept(userData);
+    }
+
+    @Override
+    public void acceptIfCached(Player player, Consumer<T> consumer) {
+        acceptIfCached(player.getUniqueId(), consumer);
     }
 
     @Override

@@ -17,6 +17,8 @@ public interface DataContainer<T extends UserData> {
 
     T getCached(Player player);
 
+    void acceptIfCached(UUID uuid, Consumer<T> consumer);
+
     void acceptIfCached(Player player, Consumer<T> consumer);
 
     CompletableFuture<Optional<T>> get(UUID uuid);
