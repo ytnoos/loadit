@@ -15,6 +15,7 @@ public class BaseLoadit<T extends UserData> implements Loadit<T> {
     private final DataLoader<T> loader;
     private final LoaditDataContainer<T> container;
     private final Collection<LoaditLoadListener<T>> listeners = new ArrayList<>();
+    private boolean debug = false;
 
     protected BaseLoadit(Plugin plugin, DataLoader<T> loader, int parallelism) {
         this.plugin = plugin;
@@ -25,7 +26,7 @@ public class BaseLoadit<T extends UserData> implements Loadit<T> {
 
     @Override
     public void init() {
-        plugin.getServer().getPluginManager().registerEvents(new AccessListener(loader, container), plugin);
+        plugin.getServer().getPluginManager().registerEvents(new AccessListener(this, loader, container), plugin);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             LoadResult result = container.loadData(player.getUniqueId(), player.getName());
@@ -66,5 +67,14 @@ public class BaseLoadit<T extends UserData> implements Loadit<T> {
     @Override
     public Collection<LoaditLoadListener<T>> getListeners() {
         return listeners;
+    }
+
+    @Override
+    public void setDebug(boolean debug) {
+        this.debug = debug;
+    }
+
+    public void debug(String message) {
+        if (debug) plugin.getLogger().info(message);
     }
 }

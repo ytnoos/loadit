@@ -30,4 +30,6 @@ public interface Loadit<T extends UserData> {
     DataContainer<T> getContainer();
 
     Collection<LoaditLoadListener<T>> getListeners();
+
+    void setDebug(boolean debug);
 }
