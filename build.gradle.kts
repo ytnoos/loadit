@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "it.ytnoos.loadit"
-version = "1.2.1-SNAPSHOT"
+version = "1.2.2-SNAPSHOT"
 
 tasks.compileJava {
     options.release.set(8)
