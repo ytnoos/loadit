@@ -29,7 +29,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
                     worker.setDaemon(true);
                     worker.setName("loadit-executor-" + worker.getPoolIndex());
                     return worker;
-                }, (t, e) -> e.printStackTrace(), false);
+                }, (t, e) -> loadit.getPlugin().getLogger().log(Level.SEVERE, e, () -> "An exception occurred in loadit executor"), false);
     }
 
     public void stop() {
