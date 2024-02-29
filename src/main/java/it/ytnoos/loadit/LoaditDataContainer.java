@@ -64,8 +64,8 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
         userData.setPlayer(null);
     }
 
-    protected LoadResult loadData(UUID uuid, String name) {
-        if (data.containsKey(uuid)) return LoadResult.ALREADY_LOADED;
+    protected synchronized LoadResult loadData(UUID uuid, String name) {
+        if (hasData(uuid)) return LoadResult.ALREADY_LOADED;
 
         for (LoaditLoadListener<T> listener : loadit.getListeners()) {
             listener.onPreLoad(uuid, name);
