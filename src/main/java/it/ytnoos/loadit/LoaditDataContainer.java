@@ -4,6 +4,7 @@ import it.ytnoos.loadit.api.*;
 import org.bukkit.entity.Player;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
@@ -16,6 +17,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
     private final DataLoader<T> loader;
 
     private final ConcurrentMap<UUID, T> data = new ConcurrentHashMap<>();
+    private final Set<UUID> loading = ConcurrentHashMap.newKeySet();
     private final ExecutorService loaderExecutor;
 
     public LoaditDataContainer(Loadit<T> loadit, DataLoader<T> loader, int parallelism) {
@@ -42,6 +44,7 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
         } finally {
             data.values().forEach(userData -> userData.setPlayer(null));
             data.clear();
+            loading.clear();
         }
     }
 
@@ -64,14 +67,18 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
         userData.setPlayer(null);
     }
 
-    protected synchronized LoadResult loadData(UUID uuid, String name) {
+    protected LoadResult loadData(UUID uuid, String name) {
         if (hasData(uuid)) return LoadResult.ALREADY_LOADED;
 
-        for (LoaditLoadListener<T> listener : loadit.getListeners()) {
-            listener.onPreLoad(uuid, name);
-        }
+        if (!loading.add(uuid)) return LoadResult.ALREADY_LOADING;
 
         try {
+            if (hasData(uuid)) return LoadResult.ALREADY_LOADED;
+
+            for (LoaditLoadListener<T> listener : loadit.getListeners()) {
+                listener.onPreLoad(uuid, name);
+            }
+
             T userData = loader.getOrCreate(uuid, name).orElse(null);
             if (userData == null) return LoadResult.ERROR_LOAD_USER;
 
@@ -88,6 +95,8 @@ public class LoaditDataContainer<T extends UserData> implements DataContainer<T>
         } catch (Exception e) {
             loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
             return LoadResult.ERROR_LOAD_USER;
+        } finally {
+            loading.remove(uuid);
         }
     }
 
