@@ -1,19 +1,19 @@
 package it.ytnoos.loadit;
 
-import it.ytnoos.loadit.api.DataContainer;
-import it.ytnoos.loadit.api.DataLoader;
-import it.ytnoos.loadit.api.LoaditLoadListener;
-import it.ytnoos.loadit.api.UserData;
+import it.ytnoos.loadit.api.*;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
-public interface Loadit<T extends UserData> {
-    static <T extends UserData> Loadit<T> createInstance(Plugin plugin, DataLoader<T> loader) {
+@NullMarked
+public interface Loadit<D, S> {
+    static <D, S> Loadit<D, S> createInstance(Plugin plugin, DataLoader<D, S> loader) {
         return createInstance(plugin, loader, 1);
     }
 
-    static <T extends UserData> Loadit<T> createInstance(Plugin plugin, DataLoader<T> loader, int parallelism) {
+    static <D, S>  Loadit<D, S> createInstance(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
         return new BaseLoadit<>(plugin, loader, parallelism);
     }
 
@@ -21,15 +21,15 @@ public interface Loadit<T extends UserData> {
 
     void stop();
 
-    void addListener(LoaditLoadListener<T> listener);
+    void addListener(LoaditLoadListener<D, S> listener);
 
     void logError(Throwable t, String message);
 
     Plugin getPlugin();
 
-    DataContainer<T> getContainer();
+    DataRegistry<D, S> getContainer();
 
-    Collection<LoaditLoadListener<T>> getListeners();
+    Collection<LoaditLoadListener<D, S>> getListeners();
 
     void setDebug(boolean debug);
 }

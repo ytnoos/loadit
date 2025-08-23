@@ -22,8 +22,9 @@ repositories {
 }
 
 dependencies {
-    compileOnly("org.jetbrains:annotations:24.0.0")
     compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT")
+
+    implementation("org.jspecify:jspecify:1.0.0")
 }
 
 publishing {

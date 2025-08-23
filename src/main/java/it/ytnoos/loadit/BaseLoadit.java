@@ -4,24 +4,27 @@ import it.ytnoos.loadit.api.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.logging.Level;
 
-public class BaseLoadit<T extends UserData> implements Loadit<T> {
+@NullMarked
+public class BaseLoadit<D, S> implements Loadit<D, S> {
 
     private final Plugin plugin;
-    private final DataLoader<T> loader;
-    private final LoaditDataContainer<T> container;
-    private final Collection<LoaditLoadListener<T>> listeners = new ArrayList<>();
+    private final DataLoader<D, S> loader;
+    private final LoaditDataRegistry<D, S> container;
+    private final Collection<LoaditLoadListener<D, S>> listeners = new ArrayList<>();
     private boolean debug = false;
 
-    protected BaseLoadit(Plugin plugin, DataLoader<T> loader, int parallelism) {
+    protected BaseLoadit(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
         this.plugin = plugin;
         this.loader = loader;
 
-        container = new LoaditDataContainer<>(this, loader, parallelism);
+        container = new LoaditDataRegistry<>(this, loader, parallelism);
     }
 
     @Override
@@ -45,7 +48,7 @@ public class BaseLoadit<T extends UserData> implements Loadit<T> {
     }
 
     @Override
-    public void addListener(LoaditLoadListener<T> listener) {
+    public void addListener(LoaditLoadListener<D, S> listener) {
         listeners.add(listener);
     }
 
@@ -60,12 +63,12 @@ public class BaseLoadit<T extends UserData> implements Loadit<T> {
     }
 
     @Override
-    public DataContainer<T> getContainer() {
+    public DataRegistry<D, S> getContainer() {
         return container;
     }
 
     @Override
-    public Collection<LoaditLoadListener<T>> getListeners() {
+    public Collection<LoaditLoadListener<D, S>> getListeners() {
         return listeners;
     }
 

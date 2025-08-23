@@ -14,11 +14,11 @@ import java.util.UUID;
 
 public class AccessListener implements Listener {
 
-    private final BaseLoadit<?> loadit;
-    private final DataLoader<?> loader;
-    private final LoaditDataContainer<?> container;
+    private final BaseLoadit<?, ?> loadit;
+    private final DataLoader<?, ?> loader;
+    private final LoaditDataRegistry<?, ?> container;
 
-    public AccessListener(BaseLoadit<?> loadit, DataLoader<?> loader, LoaditDataContainer<?> container) {
+    public AccessListener(BaseLoadit<?, ?> loadit, DataLoader<?, ?> loader, LoaditDataRegistry<?, ?> container) {
         this.loadit = loadit;
         this.loader = loader;
         this.container = container;
@@ -36,7 +36,7 @@ public class AccessListener implements Listener {
         LoadResult result = container.loadData(uuid, name);
 
         if (result != LoadResult.LOADED) {
-            loadit.debug("Error while loading data for " + uuid + " (" + name + ")");
+            loadit.debug("Cannot load data for " + uuid + " (" + name + ")" + " (" + result.name() + ")");
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, name));
         }
     }
@@ -57,7 +57,7 @@ public class AccessListener implements Listener {
         //Player won't join the server, we clear his offline data
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             loadit.debug("Removing data for " + event.getUniqueId() + " (" + event.getName() + ") since he won't join the server during AsyncLogin");
-            container.removeData(event.getUniqueId());
+            container.removeData(event.getUniqueId(), false);
         }
     }
 
@@ -68,7 +68,7 @@ public class AccessListener implements Listener {
 
         if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
             loadit.debug(uuid + " (" + player.getName() + ") has been disallowed from joining the server, removing his data...");
-            container.removeData(uuid);
+            container.removeData(uuid, true);
             return;
         }
 
@@ -76,7 +76,7 @@ public class AccessListener implements Listener {
         LoadResult result = container.setupPlayer(player);
 
         if (result != LoadResult.LOADED) {
-            loadit.debug("Error while associating data for " + uuid + " (" + player.getName() + ")");
+            loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ")" + " (" + result.name() + ")");
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, player.getName()));
         }
     }
@@ -96,13 +96,13 @@ public class AccessListener implements Listener {
     public void lastLogin(PlayerLoginEvent event) {
         if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
             loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he won't join the server during Login");
-            container.removeData(event.getPlayer().getUniqueId());
+            container.removeData(event.getPlayer().getUniqueId(), true);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void quit(PlayerQuitEvent event) {
         loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he quit the server");
-        container.removeData(event.getPlayer().getUniqueId());
+        container.removeData(event.getPlayer().getUniqueId(), true);
     }
 }
