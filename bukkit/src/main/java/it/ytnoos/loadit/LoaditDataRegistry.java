@@ -42,24 +42,24 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
     }
 
     @Override
-    public ExecutorService getExecutor() {
+    public ExecutorService executor() {
         return loaderExecutor;
     }
 
     @Nullable
     @Override
-    public D getCached(UUID uuid) {
+    public D data(UUID uuid) {
         return data.get(uuid);
     }
 
     @Override
-    public @Nullable S getSession(Player player) {
+    public @Nullable S session(Player player) {
         return sessions.get(player.getUniqueId());
     }
 
     @Override
-    public S getSessionOrThrow(Player player) {
-        S session = getSession(player);
+    public S requireSession(Player player) {
+        S session = session(player);
 
         if (session == null)
             throw new NullPointerException(player.getUniqueId() + " " + player.getName() + " does not have a session");
@@ -68,14 +68,14 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
     }
 
     @Override
-    public void acceptIfCached(UUID uuid, Consumer<D> consumer) {
+    public void ifPresent(UUID uuid, Consumer<D> consumer) {
         D userData = data.get(uuid);
         if (userData != null) consumer.accept(userData);
     }
 
     @Override
-    public void acceptIfCached(Player player, Consumer<D> consumer) {
-        acceptIfCached(player.getUniqueId(), consumer);
+    public void ifPresent(Player player, Consumer<D> consumer) {
+        ifPresent(player.getUniqueId(), consumer);
     }
 
     @Override
@@ -99,14 +99,14 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
     }
 
     @Override
-    public <E extends Exception> void forEachThrowable(ThrowableConsumer<D, E> consumer) throws E {
+    public <E extends Exception> void forEachThrowing(ThrowableConsumer<D, E> consumer) throws E {
         for (D userData : data.values()) {
             consumer.accept(userData);
         }
     }
 
     @Override
-    public <E extends Exception> void forEachSessionThrowable(ThrowableConsumer<S, E> consumer) throws E {
+    public <E extends Exception> void forEachSessionThrowing(ThrowableConsumer<S, E> consumer) throws E {
         for (S session : sessions.values()) {
             consumer.accept(session);
         }
@@ -135,10 +135,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
         D userData = data.remove(uuid);
         if (userData == null) return;
 
-        callListeners(listener -> {
-            listener.onUnload(userData);
-            return true;
-        });
+        notifyListeners(listener -> listener.onUnload(userData));
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
@@ -188,11 +185,6 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
         return LoadResult.LOADED;
     }
 
-    /**
-     * Calls each listener with a boolean-returning function.
-     * If a listener returns false, stops and returns false.
-     * If a listener throws, logs the error and continues to the next listener.
-     */
     private boolean callListeners(Function<LoaditLoadListener<D, S>, Boolean> function) {
         for (LoaditLoadListener<D, S> listener : loadit.listeners()) {
             try {
@@ -202,5 +194,12 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
             }
         }
         return true;
+    }
+
+    private void notifyListeners(Consumer<LoaditLoadListener<D, S>> consumer) {
+        callListeners(listener -> {
+            consumer.accept(listener);
+            return true;
+        });
     }
 }
