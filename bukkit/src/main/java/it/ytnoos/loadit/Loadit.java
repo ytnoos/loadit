@@ -15,7 +15,7 @@ public interface Loadit<D, S> {
     }
 
     static <D, S>  Loadit<D, S> createInstance(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
-        return new BaseLoadit<>(plugin, loader, parallelism);
+        return new LoaditImpl<>(plugin, loader, parallelism);
     }
 
     void init();

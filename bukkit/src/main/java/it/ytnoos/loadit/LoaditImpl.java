@@ -14,7 +14,7 @@ import java.util.Collection;
 import java.util.logging.Level;
 
 @NullMarked
-public class BaseLoadit<D, S> implements Loadit<D, S> {
+public class LoaditImpl<D, S> implements Loadit<D, S> {
 
     private final Plugin plugin;
     private final DataLoader<D, S> loader;
@@ -22,7 +22,7 @@ public class BaseLoadit<D, S> implements Loadit<D, S> {
     private final Collection<LoaditLoadListener<D, S>> listeners = new ArrayList<>();
     private boolean debug = false;
 
-    protected BaseLoadit(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
+    protected LoaditImpl(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
         this.plugin = plugin;
         this.loader = loader;
 

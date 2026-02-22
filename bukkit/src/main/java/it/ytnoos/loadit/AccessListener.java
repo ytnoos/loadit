@@ -14,11 +14,11 @@ import java.util.UUID;
 
 public class AccessListener implements Listener {
 
-    private final BaseLoadit<?, ?> loadit;
+    private final LoaditImpl<?, ?> loadit;
     private final DataLoader<?, ?> loader;
     private final LoaditDataRegistry<?, ?> container;
 
-    public AccessListener(BaseLoadit<?, ?> loadit, DataLoader<?, ?> loader, LoaditDataRegistry<?, ?> container) {
+    public AccessListener(LoaditImpl<?, ?> loadit, DataLoader<?, ?> loader, LoaditDataRegistry<?, ?> container) {
         this.loadit = loadit;
         this.loader = loader;
         this.container = container;
