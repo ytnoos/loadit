@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 
 /**
@@ -134,11 +135,10 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
         D userData = data.remove(uuid);
         if (userData == null) return;
 
-        try {
-            callListeners(listener -> listener.onUnload(userData));
-        } catch (Exception e) {
-            loadit.plugin().getLogger().log(Level.SEVERE, e, () -> "Error while calling onUnload listener");
-        }
+        callListeners(listener -> {
+            listener.onUnload(userData);
+            return true;
+        });
     }
 
     protected LoadResult loadData(UUID uuid, String name) {
@@ -149,7 +149,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
         try {
             if (hasData(uuid)) return LoadResult.ALREADY_LOADED;
 
-            callListeners(listener -> listener.onPreLoad(uuid, name));
+            if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR_LOAD_USER;
 
             D userData = loader.getOrCreate(uuid, name);
             if (userData == null) return LoadResult.ERROR_LOAD_USER;
@@ -159,7 +159,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
             if (previousValue != null)
                 loadit.plugin().getLogger().warning(() -> uuid + " " + name + " was already loaded!");
 
-            callListeners(listener -> listener.onPostLoad(userData));
+            if (!callListeners(listener -> listener.onPostLoad(userData))) return LoadResult.ERROR_LOAD_USER;
 
             return LoadResult.LOADED;
         } catch (Exception e) {
@@ -171,25 +171,36 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
     }
 
     protected LoadResult setupPlayer(Player player) {
-        D foundData = data.compute(player.getUniqueId(), (uuid, userData) -> {
-            if (userData == null) return null;
+        UUID uuid = player.getUniqueId();
+        D userData = data.get(uuid);
+        if (userData == null) return LoadResult.NOT_LOADED;
 
-            S session = loader.startSession(userData, player);
-            if (session == null) return null; //TODO: this will remove userData from the map? shouldn't we remove it later?
+        S session = loader.startSession(userData, player);
+        if (session == null) return LoadResult.NOT_LOADED;
 
-            sessions.put(uuid, session);
-            callListeners(listener -> listener.onSessionStart(userData, session));
-            return userData;
-        });
+        sessions.put(uuid, session);
 
-        if (foundData != null) return LoadResult.LOADED;
+        if (!callListeners(listener -> listener.onSessionStart(userData, session))) {
+            sessions.remove(uuid);
+            return LoadResult.NOT_LOADED;
+        }
 
-        return LoadResult.NOT_LOADED;
+        return LoadResult.LOADED;
     }
 
-    private void callListeners(Consumer<LoaditLoadListener<D, S>> consumer) {
+    /**
+     * Calls each listener with a boolean-returning function.
+     * If a listener returns false, stops and returns false.
+     * If a listener throws, logs the error and continues to the next listener.
+     */
+    private boolean callListeners(Function<LoaditLoadListener<D, S>, Boolean> function) {
         for (LoaditLoadListener<D, S> listener : loadit.listeners()) {
-            consumer.accept(listener);
+            try {
+                if (!function.apply(listener)) return false;
+            } catch (Exception e) {
+                loadit.logError(e, "Error in listener " + listener.getClass().getName());
+            }
         }
+        return true;
     }
 }
