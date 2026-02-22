@@ -4,6 +4,8 @@ plugins {
 
 dependencies {
     implementation(project(":api"))
+
+    compileOnlyApi(libs.spigot)
 }
 
 tasks.shadowJar {

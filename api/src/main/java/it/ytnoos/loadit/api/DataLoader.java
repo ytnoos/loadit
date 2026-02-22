@@ -1,6 +1,5 @@
 package it.ytnoos.loadit.api;
 
-import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
@@ -14,8 +13,9 @@ import java.util.UUID;
  *
  * @param <D> the data type, representing a player's persistent/offline data
  * @param <S> the session type, representing the live state of an online player
+ * @param <P> the platform player type
  */
-public interface DataLoader<D, S> {
+public interface DataLoader<D, S, P> {
 
     /**
      * Loads existing data for the given player, or creates new data if none exists.
@@ -57,6 +57,6 @@ public interface DataLoader<D, S> {
      * @return the created session, or null if session creation failed (the player will be kicked)
      */
     @Nullable
-    S startSession(D data, Player player);
+    S startSession(D data, P player);
 
 }

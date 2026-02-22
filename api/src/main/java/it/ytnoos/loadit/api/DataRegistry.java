@@ -1,6 +1,5 @@
 package it.ytnoos.loadit.api;
 
-import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
@@ -17,8 +16,9 @@ import java.util.function.Consumer;
  *
  * @param <D> the data type, representing a player's persistent/offline data
  * @param <S> the session type, representing the live state of an online player
+ * @param <P> the platform player type
  */
-public interface DataRegistry<D, S> {
+public interface DataRegistry<D, S, P> {
 
     /**
      * Returns the executor used for asynchronous data loading operations.
@@ -44,7 +44,7 @@ public interface DataRegistry<D, S> {
      * @return the session, or null
      */
     @Nullable
-    S session(Player player);
+    S session(P player);
 
     /**
      * Returns the session for the given online player, throwing if no session exists.
@@ -53,7 +53,7 @@ public interface DataRegistry<D, S> {
      * @return the session, never null
      * @throws NullPointerException if the player has no active session
      */
-    S requireSession(Player player);
+    S requireSession(P player);
 
     /**
      * Applies the consumer to the player's cached data if it is present.
@@ -69,7 +69,7 @@ public interface DataRegistry<D, S> {
      * @param player   the player
      * @param consumer the action to perform on the data
      */
-    void ifPresent(Player player, Consumer<D> consumer);
+    void ifPresent(P player, Consumer<D> consumer);
 
     /**
      * Asynchronously loads data for the given player by UUID.

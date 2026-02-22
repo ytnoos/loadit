@@ -3,6 +3,5 @@ plugins {
 }
 
 dependencies {
-    compileOnlyApi(libs.spigot)
     compileOnlyApi(libs.jspecify)
 }

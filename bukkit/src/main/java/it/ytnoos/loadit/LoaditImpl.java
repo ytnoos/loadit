@@ -14,19 +14,21 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
-class LoaditImpl<D, S> implements Loadit<D, S> {
+class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
 
     private final Plugin plugin;
     private final LoaditDataRegistry<D, S> registry;
     private final AccessListener<D, S> accessListener;
     private final List<LoaditLoadListener<D, S>> listeners = new CopyOnWriteArrayList<>();
 
+    private static final String LOG_PREFIX = "[Loadit] ";
     private Function<LoadResult, String> kickMessageProvider = LoaditImpl::defaultKickMessage;
     private boolean debug = false;
     private boolean initialized = false;
 
-    protected LoaditImpl(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
+    protected LoaditImpl(Plugin plugin, DataLoader<D, S, Player> loader, int parallelism) {
         this.plugin = plugin;
 
         registry = new LoaditDataRegistry<>(this, loader, parallelism);
@@ -60,8 +62,18 @@ class LoaditImpl<D, S> implements Loadit<D, S> {
     }
 
     @Override
-    public void logError(Throwable t, String message) {
-        plugin.getLogger().log(Level.SEVERE, t, () -> "[Loadit] " + message);
+    public Logger logger() {
+        return plugin.getLogger();
+    }
+
+    @Override
+    public void log(Level level, String message) {
+        logger().log(level, () -> LOG_PREFIX + message);
+    }
+
+    @Override
+    public void log(Level level, Throwable e, String message) {
+        logger().log(level, e, () -> LOG_PREFIX + message);
     }
 
     @Override
@@ -70,7 +82,7 @@ class LoaditImpl<D, S> implements Loadit<D, S> {
     }
 
     @Override
-    public DataRegistry<D, S> registry() {
+    public DataRegistry<D, S, Player> registry() {
         return registry;
     }
 
@@ -108,7 +120,7 @@ class LoaditImpl<D, S> implements Loadit<D, S> {
     }
 
     void debug(String message) {
-        if (debug) plugin.getLogger().info(message);
+        if (debug) log(Level.INFO, message);
     }
 
     String kickMessage(LoadResult result) {

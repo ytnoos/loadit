@@ -16,10 +16,10 @@ import java.util.logging.Level;
  * @param <D> Type for offline/logging players (data)
  * @param <S> Type for online players (session)
  */
-public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
+public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
 
-    private final Loadit<D, S> loadit;
-    private final DataLoader<D, S> loader;
+    private final Loadit<D, S, Player> loadit;
+    private final DataLoader<D, S, Player> loader;
 
     private final ConcurrentMap<UUID, D> data = new ConcurrentHashMap<>();
     private final ConcurrentMap<UUID, S> sessions = new ConcurrentHashMap<>(); // write operations are only on main thread
@@ -27,7 +27,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
     private final Set<UUID> loading = ConcurrentHashMap.newKeySet();
     private final ExecutorService loaderExecutor;
 
-    LoaditDataRegistry(Loadit<D, S> loadit, DataLoader<D, S> loader, int parallelism) {
+    LoaditDataRegistry(Loadit<D, S, Player> loadit, DataLoader<D, S, Player> loader, int parallelism) {
         this.loadit = loadit;
         this.loader = loader;
 
@@ -38,7 +38,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
                     worker.setDaemon(true);
                     worker.setName("loadit-executor-" + worker.getPoolIndex());
                     return worker;
-                }, (t, e) -> loadit.plugin().getLogger().log(Level.SEVERE, e, () -> "An exception occurred in loadit executor"), false);
+                }, (t, e) -> loadit.log(Level.SEVERE, e, "An exception occurred in loadit executor"), false);
     }
 
     @Override
@@ -117,7 +117,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
         try {
             loaderExecutor.awaitTermination(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            loadit.plugin().getLogger().log(Level.SEVERE, e, () -> "Interrupted await termination");
+            loadit.log(Level.SEVERE, e, "Interrupted await termination");
             Thread.currentThread().interrupt();
         } finally {
             sessions.clear();
@@ -154,13 +154,13 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
             D previousValue = data.put(uuid, userData);
 
             if (previousValue != null)
-                loadit.plugin().getLogger().warning(() -> uuid + " " + name + " was already loaded!");
+                loadit.log(Level.WARNING, uuid + " " + name + " was already loaded!");
 
             if (!callListeners(listener -> listener.onPostLoad(userData))) return LoadResult.ERROR;
 
             return LoadResult.LOADED;
         } catch (Exception e) {
-            loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
+            loadit.log(Level.SEVERE, e, "Unable to get or create " + uuid + " " + name + " data");
             return LoadResult.error(e);
         } finally {
             loading.remove(uuid);
@@ -190,7 +190,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
             try {
                 if (!function.apply(listener)) return false;
             } catch (Exception e) {
-                loadit.logError(e, "Error in listener " + listener.getClass().getName());
+                loadit.log(Level.SEVERE, e, "Error in listener " + listener.getClass().getName());
             }
         }
         return true;
