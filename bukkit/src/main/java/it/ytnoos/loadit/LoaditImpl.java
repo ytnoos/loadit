@@ -1,9 +1,6 @@
 package it.ytnoos.loadit;
 
-import it.ytnoos.loadit.api.DataLoader;
-import it.ytnoos.loadit.api.DataRegistry;
-import it.ytnoos.loadit.api.LoadResult;
-import it.ytnoos.loadit.api.LoaditLoadListener;
+import it.ytnoos.loadit.api.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
@@ -11,8 +8,8 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,7 +21,7 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
     private final List<LoaditLoadListener<D, S>> listeners = new CopyOnWriteArrayList<>();
 
     private static final String LOG_PREFIX = "[Loadit] ";
-    private Function<LoadResult, String> kickMessageProvider = LoaditImpl::defaultKickMessage;
+    private KickMessageProvider kickMessageProvider = LoaditImpl::defaultKickMessage;
     private boolean debug = false;
     private boolean initialized = false;
 
@@ -35,7 +32,7 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
         accessListener = new AccessListener<>(this, registry);
     }
 
-    private static String defaultKickMessage(LoadResult result) {
+    private static String defaultKickMessage(LoadResult result, UUID uuid, String name) {
         String message = "An error occurred while trying to load your data. (" + result.type().name() + ")";
         if (result.cause() != null) message += "\n" + result.cause().getMessage();
         return message;
@@ -105,7 +102,7 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
                 if (result.isLoaded()) continue;
             }
 
-            player.kickPlayer(kickMessageProvider.apply(result));
+            player.kickPlayer(kickMessageProvider.getKickMessage(result, player.getUniqueId(), player.getName()));
         }
     }
 
@@ -115,7 +112,7 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
     }
 
     @Override
-    public void setKickMessage(Function<LoadResult, String> kickMessageProvider) {
+    public void setKickMessage(KickMessageProvider kickMessageProvider) {
         this.kickMessageProvider = kickMessageProvider;
     }
 
@@ -123,7 +120,7 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
         if (debug) log(Level.INFO, message);
     }
 
-    String kickMessage(LoadResult result) {
-        return kickMessageProvider.apply(result);
+    String kickMessage(LoadResult result, UUID uuid, String name) {
+        return kickMessageProvider.getKickMessage(result, uuid, name);
     }
 }

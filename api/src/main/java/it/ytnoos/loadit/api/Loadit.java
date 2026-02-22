@@ -1,7 +1,6 @@
 package it.ytnoos.loadit.api;
 
 import java.util.List;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -73,7 +72,7 @@ public interface Loadit<D, S, P> {
      *
      * @param kickMessageProvider a function that takes a {@link LoadResult} and returns the kick message
      */
-    void setKickMessage(Function<LoadResult, String> kickMessageProvider);
+    void setKickMessage(KickMessageProvider kickMessageProvider);
 
     /**
      * Enables or disables debug logging.

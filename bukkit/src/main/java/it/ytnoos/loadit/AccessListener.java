@@ -34,7 +34,7 @@ class AccessListener<D, S> implements Listener {
 
         if (!result.isLoaded()) {
             loadit.debug("Cannot load data for " + uuid + " (" + name + ") (" + result + ")");
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result));
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result, uuid, name));
         }
     }
 
@@ -45,7 +45,7 @@ class AccessListener<D, S> implements Listener {
         //It means someone disallowed firstAsync (so we didn't load anything) and then allowed the login again
         if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED && !registry.hasData(uuid)) {
             loadit.debug(uuid + " (" + event.getName() + ") has been re-allowed in AsyncLogin but data is not loaded!");
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.PRE_LOGIN_REALLOWED));
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.PRE_LOGIN_REALLOWED, uuid, event.getName()));
         }
     }
 
@@ -74,7 +74,7 @@ class AccessListener<D, S> implements Listener {
 
         if (!result.isLoaded()) {
             loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ") (" + result + ")");
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result));
+            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result, uuid, player.getName()));
         }
     }
 
@@ -85,7 +85,7 @@ class AccessListener<D, S> implements Listener {
 
         if (event.getResult() == PlayerLoginEvent.Result.ALLOWED && !registry.hasData(uuid)) {
             loadit.debug(uuid + " (" + player.getName() + ") has been re-allowed in Login but data is not loaded!");
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.LOGIN_REALLOWED));
+            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.LOGIN_REALLOWED, uuid, player.getName()));
         }
     }
 
