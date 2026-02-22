@@ -6,37 +6,44 @@ import it.ytnoos.loadit.api.LoadResult;
 import it.ytnoos.loadit.api.LoaditLoadListener;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
-import org.jspecify.annotations.NullMarked;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 
-@NullMarked
-public class LoaditImpl<D, S> implements Loadit<D, S> {
+class LoaditImpl<D, S> implements Loadit<D, S> {
 
     private final Plugin plugin;
     private final DataLoader<D, S> loader;
-    private final LoaditDataRegistry<D, S> container;
-    private final Collection<LoaditLoadListener<D, S>> listeners = new ArrayList<>();
+    private final LoaditDataRegistry<D, S> registry;
+    private final AccessListener<D, S> accessListener;
+    private final List<LoaditLoadListener<D, S>> listeners = new CopyOnWriteArrayList<>();
+
     private boolean debug = false;
+    private boolean initialized = false;
 
     protected LoaditImpl(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
         this.plugin = plugin;
         this.loader = loader;
 
-        container = new LoaditDataRegistry<>(this, loader, parallelism);
+        registry = new LoaditDataRegistry<>(this, loader, parallelism);
+        accessListener = new AccessListener<>(this, loader, registry);
     }
 
     @Override
     public void init() {
-        plugin.getServer().getPluginManager().registerEvents(new AccessListener(this, loader, container), plugin);
+        if (initialized) throw new IllegalStateException("Loadit has already been initialized");
+
+        initialized = true;
+        plugin.getServer().getPluginManager().registerEvents(accessListener, plugin);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            LoadResult result = container.loadData(player.getUniqueId(), player.getName());
+            LoadResult result = registry.loadData(player.getUniqueId(), player.getName());
             if (result == LoadResult.LOADED) {
-                result = container.setupPlayer(player);
+                result = registry.setupPlayer(player);
                 if (result == LoadResult.LOADED) continue;
             }
 
@@ -46,7 +53,12 @@ public class LoaditImpl<D, S> implements Loadit<D, S> {
 
     @Override
     public void stop() {
-        container.stop();
+        if (!initialized) return;
+
+        HandlerList.unregisterAll(accessListener);
+        registry.stop();
+
+        initialized = false;
     }
 
     @Override
@@ -55,27 +67,32 @@ public class LoaditImpl<D, S> implements Loadit<D, S> {
     }
 
     @Override
+    public void removeListener(LoaditLoadListener<D, S> listener) {
+        listeners.remove(listener);
+    }
+
+    @Override
     public void logError(Throwable t, String message) {
         plugin.getLogger().log(Level.SEVERE, t, () -> "[Loadit] " + message);
     }
 
     @Override
-    public Plugin getPlugin() {
+    public Plugin plugin() {
         return plugin;
     }
 
     @Override
-    public DataRegistry<D, S> getContainer() {
-        return container;
+    public DataRegistry<D, S> registry() {
+        return registry;
     }
 
     @Override
-    public Collection<LoaditLoadListener<D, S>> getListeners() {
-        return listeners;
+    public List<LoaditLoadListener<D, S>> listeners() {
+        return Collections.unmodifiableList(listeners);
     }
 
     @Override
-    public void setDebug(boolean debug) {
+    public void debug(boolean debug) {
         this.debug = debug;
     }
 

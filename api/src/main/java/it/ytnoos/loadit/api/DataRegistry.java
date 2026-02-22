@@ -1,7 +1,6 @@
 package it.ytnoos.loadit.api;
 
 import org.bukkit.entity.Player;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
@@ -9,7 +8,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-@NullMarked
 public interface DataRegistry<D, S> {
 
     ExecutorService getExecutor();
@@ -35,4 +33,6 @@ public interface DataRegistry<D, S> {
     void forEachSession(Consumer<S> consumer);
 
     <E extends Exception> void forEachThrowable(ThrowableConsumer<D, E> consumer) throws E;
+
+    <E extends Exception> void forEachSessionThrowable(ThrowableConsumer<S, E> consumer) throws E;
 }

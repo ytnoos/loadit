@@ -1,12 +1,10 @@
 package it.ytnoos.loadit.api;
 
 import org.bukkit.entity.Player;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
 
-@NullMarked
 public interface DataLoader<D, S> {
 
     @Nullable

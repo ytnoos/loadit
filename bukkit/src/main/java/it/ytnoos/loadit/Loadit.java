@@ -4,17 +4,17 @@ import it.ytnoos.loadit.api.DataLoader;
 import it.ytnoos.loadit.api.DataRegistry;
 import it.ytnoos.loadit.api.LoaditLoadListener;
 import org.bukkit.plugin.Plugin;
-import org.jspecify.annotations.NullMarked;
 
-import java.util.Collection;
+import java.util.List;
 
-@NullMarked
 public interface Loadit<D, S> {
     static <D, S> Loadit<D, S> createInstance(Plugin plugin, DataLoader<D, S> loader) {
         return createInstance(plugin, loader, 1);
     }
 
     static <D, S>  Loadit<D, S> createInstance(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
+        if (parallelism < 1) throw new IllegalArgumentException("parallelism must be at least 1");
+
         return new LoaditImpl<>(plugin, loader, parallelism);
     }
 
@@ -24,13 +24,15 @@ public interface Loadit<D, S> {
 
     void addListener(LoaditLoadListener<D, S> listener);
 
+    void removeListener(LoaditLoadListener<D, S> listener);
+
     void logError(Throwable t, String message);
 
-    Plugin getPlugin();
+    Plugin plugin();
 
-    DataRegistry<D, S> getContainer();
+    DataRegistry<D, S> registry();
 
-    Collection<LoaditLoadListener<D, S>> getListeners();
+    List<LoaditLoadListener<D, S>> listeners();
 
-    void setDebug(boolean debug);
+    void debug(boolean debug);
 }
