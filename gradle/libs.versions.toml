@@ -1,0 +1,14 @@
+[versions]
+mavenSettings = "0.5"
+shadow = "9.3.1"
+spigot = "1.8.8-R0.1-SNAPSHOT"
+jspecify = "1.0.0"
+
+[libraries]
+mavenSettings = { module = "net.linguica.maven-settings:net.linguica.maven-settings.gradle.plugin", version.ref = "mavenSettings" }
+shadow = { module = "com.gradleup.shadow:shadow-gradle-plugin", version.ref = "shadow" }
+spigot = { module = "org.spigotmc:spigot-api", version.ref = "spigot" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+
+[bundles]
+gradle_plugins = ["mavenSettings", "shadow"]

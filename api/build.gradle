@@ -1,0 +1,8 @@
+plugins {
+    id("loadit-publish")
+}
+
+dependencies {
+    compileOnlyApi(libs.spigot)
+    compileOnlyApi(libs.jspecify)
+}
