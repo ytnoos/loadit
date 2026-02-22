@@ -59,15 +59,4 @@ public interface DataLoader<D, S> {
     @Nullable
     S startSession(D data, Player player);
 
-    /**
-     * Returns the kick message shown to a player when a load or setup operation fails.
-     *
-     * @param result the result that caused the failure
-     * @param uuid   the player's unique id
-     * @param name   the player's name
-     * @return the error message to display
-     */
-    default String getErrorMessage(LoadResult result, UUID uuid, String name) {
-        return "An error occurred while trying to load your data. (" + result.name() + ")";
-    }
 }

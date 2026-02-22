@@ -1,6 +1,5 @@
 package it.ytnoos.loadit;
 
-import it.ytnoos.loadit.api.DataLoader;
 import it.ytnoos.loadit.api.LoadResult;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,15 +11,13 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.UUID;
 
-public class AccessListener<D, S> implements Listener {
+class AccessListener<D, S> implements Listener {
 
     private final LoaditImpl<D, S> loadit;
-    private final DataLoader<D, S> loader;
     private final LoaditDataRegistry<D, S> registry;
 
-    AccessListener(LoaditImpl<D, S> loadit, DataLoader<D, S> loader, LoaditDataRegistry<D, S> registry) {
+    AccessListener(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry) {
         this.loadit = loadit;
-        this.loader = loader;
         this.registry = registry;
     }
 
@@ -35,9 +32,9 @@ public class AccessListener<D, S> implements Listener {
         loadit.debug("Loading data for " + uuid + " (" + name + ")");
         LoadResult result = registry.loadData(uuid, name);
 
-        if (result != LoadResult.LOADED) {
-            loadit.debug("Cannot load data for " + uuid + " (" + name + ")" + " (" + result.name() + ")");
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, name));
+        if (!result.isLoaded()) {
+            loadit.debug("Cannot load data for " + uuid + " (" + name + ") (" + result + ")");
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result));
         }
     }
 
@@ -48,7 +45,7 @@ public class AccessListener<D, S> implements Listener {
         //It means someone disallowed firstAsync (so we didn't load anything) and then allowed the login again
         if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.ALLOWED && !registry.hasData(uuid)) {
             loadit.debug(uuid + " (" + event.getName() + ") has been re-allowed in AsyncLogin but data is not loaded!");
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(LoadResult.PRE_LOGIN_REALLOWED, uuid, event.getName()));
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.PRE_LOGIN_REALLOWED));
         }
     }
 
@@ -75,9 +72,9 @@ public class AccessListener<D, S> implements Listener {
         loadit.debug("Associating data for " + uuid + " (" + player.getName() + ")");
         LoadResult result = registry.setupPlayer(player);
 
-        if (result != LoadResult.LOADED) {
-            loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ")" + " (" + result.name() + ")");
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(result, uuid, player.getName()));
+        if (!result.isLoaded()) {
+            loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ") (" + result + ")");
+            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result));
         }
     }
 
@@ -88,7 +85,7 @@ public class AccessListener<D, S> implements Listener {
 
         if (event.getResult() == PlayerLoginEvent.Result.ALLOWED && !registry.hasData(uuid)) {
             loadit.debug(uuid + " (" + player.getName() + ") has been re-allowed in Login but data is not loaded!");
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loader.getErrorMessage(LoadResult.LOGIN_REALLOWED, uuid, player.getName()));
+            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.LOGIN_REALLOWED));
         }
     }
 

@@ -12,43 +12,31 @@ import org.bukkit.plugin.Plugin;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
 import java.util.logging.Level;
 
 class LoaditImpl<D, S> implements Loadit<D, S> {
 
     private final Plugin plugin;
-    private final DataLoader<D, S> loader;
     private final LoaditDataRegistry<D, S> registry;
     private final AccessListener<D, S> accessListener;
     private final List<LoaditLoadListener<D, S>> listeners = new CopyOnWriteArrayList<>();
 
+    private Function<LoadResult, String> kickMessageProvider = LoaditImpl::defaultKickMessage;
     private boolean debug = false;
     private boolean initialized = false;
 
     protected LoaditImpl(Plugin plugin, DataLoader<D, S> loader, int parallelism) {
         this.plugin = plugin;
-        this.loader = loader;
 
         registry = new LoaditDataRegistry<>(this, loader, parallelism);
-        accessListener = new AccessListener<>(this, loader, registry);
+        accessListener = new AccessListener<>(this, registry);
     }
 
-    @Override
-    public void init() {
-        if (initialized) throw new IllegalStateException("Loadit has already been initialized");
-
-        initialized = true;
-        plugin.getServer().getPluginManager().registerEvents(accessListener, plugin);
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            LoadResult result = registry.loadData(player.getUniqueId(), player.getName());
-            if (result == LoadResult.LOADED) {
-                result = registry.setupPlayer(player);
-                if (result == LoadResult.LOADED) continue;
-            }
-
-            player.kickPlayer(loader.getErrorMessage(result, player.getUniqueId(), player.getName()));
-        }
+    private static String defaultKickMessage(LoadResult result) {
+        String message = "An error occurred while trying to load your data. (" + result.type().name() + ")";
+        if (result.cause() != null) message += "\n" + result.cause().getMessage();
+        return message;
     }
 
     @Override
@@ -92,11 +80,38 @@ class LoaditImpl<D, S> implements Loadit<D, S> {
     }
 
     @Override
+    public void init() {
+        if (initialized) throw new IllegalStateException("Loadit has already been initialized");
+
+        initialized = true;
+        plugin.getServer().getPluginManager().registerEvents(accessListener, plugin);
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            LoadResult result = registry.loadData(player.getUniqueId(), player.getName());
+            if (result.isLoaded()) {
+                result = registry.setupPlayer(player);
+                if (result.isLoaded()) continue;
+            }
+
+            player.kickPlayer(kickMessageProvider.apply(result));
+        }
+    }
+
+    @Override
     public void debug(boolean debug) {
         this.debug = debug;
     }
 
-    public void debug(String message) {
+    @Override
+    public void setKickMessage(Function<LoadResult, String> kickMessageProvider) {
+        this.kickMessageProvider = kickMessageProvider;
+    }
+
+    void debug(String message) {
         if (debug) plugin.getLogger().info(message);
+    }
+
+    String kickMessage(LoadResult result) {
+        return kickMessageProvider.apply(result);
     }
 }

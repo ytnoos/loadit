@@ -146,22 +146,22 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S> {
         try {
             if (hasData(uuid)) return LoadResult.ALREADY_LOADED;
 
-            if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR_LOAD_USER;
+            if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR;
 
             D userData = loader.getOrCreate(uuid, name);
-            if (userData == null) return LoadResult.ERROR_LOAD_USER;
+            if (userData == null) return LoadResult.ERROR;
 
             D previousValue = data.put(uuid, userData);
 
             if (previousValue != null)
                 loadit.plugin().getLogger().warning(() -> uuid + " " + name + " was already loaded!");
 
-            if (!callListeners(listener -> listener.onPostLoad(userData))) return LoadResult.ERROR_LOAD_USER;
+            if (!callListeners(listener -> listener.onPostLoad(userData))) return LoadResult.ERROR;
 
             return LoadResult.LOADED;
         } catch (Exception e) {
             loadit.logError(e, "Unable to get or create " + uuid + " " + name + " data");
-            return LoadResult.ERROR_LOAD_USER;
+            return LoadResult.error(e);
         } finally {
             loading.remove(uuid);
         }

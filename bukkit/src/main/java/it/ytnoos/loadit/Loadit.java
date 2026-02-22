@@ -2,10 +2,12 @@ package it.ytnoos.loadit;
 
 import it.ytnoos.loadit.api.DataLoader;
 import it.ytnoos.loadit.api.DataRegistry;
+import it.ytnoos.loadit.api.LoadResult;
 import it.ytnoos.loadit.api.LoaditLoadListener;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Main entry point for the Loadit library.
@@ -101,6 +103,14 @@ public interface Loadit<D, S> {
      * Returns an unmodifiable view of the registered listeners.
      */
     List<LoaditLoadListener<D, S>> listeners();
+
+    /**
+     * Sets a custom function to generate kick messages when a load or setup operation fails.
+     * The default message includes the result type and cause message if available.
+     *
+     * @param kickMessageProvider a function that takes a {@link LoadResult} and returns the kick message
+     */
+    void setKickMessage(Function<LoadResult, String> kickMessageProvider);
 
     /**
      * Enables or disables debug logging.
