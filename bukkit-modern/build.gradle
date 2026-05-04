@@ -1,0 +1,14 @@
+plugins {
+    id("loadit-publish")
+}
+
+configurations.configureEach {
+    exclude(group: "org.spigotmc", module: "spigot-api")
+}
+
+dependencies {
+    api(project(":api"))
+    api(project(":bukkit-common"))
+
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+}

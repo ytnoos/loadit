@@ -2,11 +2,13 @@ package it.ytnoos.loadit;
 
 import it.ytnoos.loadit.api.*;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -18,16 +20,18 @@ import java.util.logging.Level;
  */
 public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
 
-    private final Loadit<D, S, Player> loadit;
+    private final BukkitLoadit<D, S> loadit;
     private final DataLoader<D, S, Player> loader;
 
     private final ConcurrentMap<UUID, D> data = new ConcurrentHashMap<>();
     private final ConcurrentMap<UUID, S> sessions = new ConcurrentHashMap<>(); // write operations are only on main thread
+    private static final long CLEANUP_TIMEOUT_SECONDS = 30L;
 
     private final Set<UUID> loading = ConcurrentHashMap.newKeySet();
     private final ExecutorService loaderExecutor;
+    private @Nullable TimeoutCleanup timeoutCleanup;
 
-    LoaditDataRegistry(Loadit<D, S, Player> loadit, DataLoader<D, S, Player> loader, int parallelism) {
+    LoaditDataRegistry(BukkitLoadit<D, S> loadit, DataLoader<D, S, Player> loader, int parallelism) {
         this.loadit = loadit;
         this.loader = loader;
 
@@ -114,12 +118,17 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
 
     public void stop() {
         loaderExecutor.shutdown();
+        TimeoutCleanup timeoutCleanup = this.timeoutCleanup;
         try {
             loaderExecutor.awaitTermination(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             loadit.log(Level.SEVERE, e, "Interrupted await termination");
             Thread.currentThread().interrupt();
         } finally {
+            if (timeoutCleanup != null) {
+                timeoutCleanup.cancelAll();
+                this.timeoutCleanup = null;
+            }
             sessions.clear();
             data.clear();
             loading.clear();
@@ -130,7 +139,33 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
         return data.containsKey(uuid);
     }
 
+    public boolean hasSession(UUID uuid) {
+        return sessions.containsKey(uuid);
+    }
+
+    public void timeoutCleanup(boolean enabled) {
+        if (enabled) {
+            if (timeoutCleanup == null) {
+                timeoutCleanup = new TimeoutCleanup();
+            }
+        } else if (timeoutCleanup != null) {
+            timeoutCleanup.cancelAll();
+            timeoutCleanup = null;
+        }
+    }
+
+    public void scheduleCleanup(UUID uuid, String name) {
+        TimeoutCleanup timeoutCleanup = this.timeoutCleanup;
+        if (timeoutCleanup != null) timeoutCleanup.schedule(uuid, name);
+    }
+
+    public void cancelCleanup(UUID uuid) {
+        TimeoutCleanup timeoutCleanup = this.timeoutCleanup;
+        if (timeoutCleanup != null) timeoutCleanup.cancel(uuid);
+    }
+
     public void removeData(UUID uuid, boolean session) {
+        cancelCleanup(uuid);
         if (session) sessions.remove(uuid);
         D userData = data.remove(uuid);
         if (userData == null) return;
@@ -176,6 +211,7 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
         if (session == null) return LoadResult.NOT_LOADED;
 
         sessions.put(uuid, session);
+        cancelCleanup(uuid);
 
         if (!callListeners(listener -> listener.onSessionStart(userData, session))) {
             sessions.remove(uuid);
@@ -201,5 +237,49 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
             consumer.accept(listener);
             return true;
         });
+    }
+
+    private final class TimeoutCleanup {
+        private final ConcurrentMap<UUID, CleanupTask> cleanupTasks = new ConcurrentHashMap<>();
+        private final AtomicLong tokens = new AtomicLong();
+
+        void schedule(UUID uuid, String name) {
+            cancel(uuid);
+
+            long token = tokens.incrementAndGet();
+            BukkitTask bukkitTask = loadit.plugin().getServer().getScheduler().runTaskLater(loadit.plugin(), () -> cleanup(uuid, name, token), CLEANUP_TIMEOUT_SECONDS * 20L);
+            CleanupTask cleanupTask = new CleanupTask(token, bukkitTask);
+
+            CleanupTask previous = cleanupTasks.put(uuid, cleanupTask);
+            if (previous != null) previous.task().cancel();
+        }
+
+        private void cleanup(UUID uuid, String name, long token) {
+            CleanupTask cleanupTask = cleanupTasks.get(uuid);
+            if (cleanupTask == null || cleanupTask.token() != token) return;
+
+            if (!data.containsKey(uuid) || sessions.containsKey(uuid)) {
+                cleanupTasks.remove(uuid, cleanupTask);
+                return;
+            }
+
+            if (!cleanupTasks.remove(uuid, cleanupTask)) return;
+
+            loadit.log(Level.WARNING, "Removing stale pre-login data for " + uuid + " (" + name + ") after " + CLEANUP_TIMEOUT_SECONDS + "s without a session");
+            removeData(uuid, true);
+        }
+
+        void cancel(UUID uuid) {
+            CleanupTask task = cleanupTasks.remove(uuid);
+            if (task != null) task.task().cancel();
+        }
+
+        void cancelAll() {
+            cleanupTasks.values().forEach(task -> task.task().cancel());
+            cleanupTasks.clear();
+        }
+
+        private record CleanupTask(long token, BukkitTask task) {
+        }
     }
 }

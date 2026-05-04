@@ -2,5 +2,8 @@ rootProject.name = "loadit"
 
 include(
     "api",
-    "bukkit"
+    "bukkit-common",
+    "bukkit",
+    "bukkit-legacy",
+    "bukkit-modern"
 )

@@ -13,11 +13,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
+public class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
 
     private final Plugin plugin;
     private final LoaditDataRegistry<D, S> registry;
     private final AccessListener<D, S> accessListener;
+    private final LoaditLifecycleStrategy lifecycleStrategy;
     private final List<LoaditLoadListener<D, S>> listeners = new CopyOnWriteArrayList<>();
 
     private static final String LOG_PREFIX = "[Loadit] ";
@@ -25,11 +26,12 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
     private boolean debug = false;
     private boolean initialized = false;
 
-    protected LoaditImpl(Plugin plugin, DataLoader<D, S, Player> loader, int parallelism) {
+    protected LoaditImpl(Plugin plugin, DataLoader<D, S, Player> loader, int parallelism, LoaditLifecycleStrategyFactory lifecycleStrategyFactory) {
         this.plugin = plugin;
 
         registry = new LoaditDataRegistry<>(this, loader, parallelism);
         accessListener = new AccessListener<>(this, registry);
+        lifecycleStrategy = lifecycleStrategyFactory.create(this, accessListener, registry);
     }
 
     private static String defaultKickMessage(LoadResult result, UUID uuid, String name) {
@@ -43,6 +45,10 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
         if (!initialized) return;
 
         HandlerList.unregisterAll(accessListener);
+        HandlerList.unregisterAll(lifecycleStrategy.primaryListener());
+        if (lifecycleStrategy.secondaryListener() != null) {
+            HandlerList.unregisterAll(lifecycleStrategy.secondaryListener());
+        }
         registry.stop();
 
         initialized = false;
@@ -93,7 +99,12 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
         if (initialized) throw new IllegalStateException("Loadit has already been initialized");
 
         initialized = true;
+        registry.timeoutCleanup(lifecycleStrategy.usesTimeoutCleanup());
         plugin.getServer().getPluginManager().registerEvents(accessListener, plugin);
+        plugin.getServer().getPluginManager().registerEvents(lifecycleStrategy.primaryListener(), plugin);
+        if (lifecycleStrategy.secondaryListener() != null) {
+            plugin.getServer().getPluginManager().registerEvents(lifecycleStrategy.secondaryListener(), plugin);
+        }
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             LoadResult result = registry.loadData(player.getUniqueId(), player.getName());
@@ -122,5 +133,9 @@ class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
 
     String kickMessage(LoadResult result, UUID uuid, String name) {
         return kickMessageProvider.getKickMessage(result, uuid, name);
+    }
+
+    void schedulePreJoinCleanup(UUID uuid, String name) {
+        registry.scheduleCleanup(uuid, name);
     }
 }

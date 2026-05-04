@@ -1,12 +1,10 @@
 package it.ytnoos.loadit;
 
 import it.ytnoos.loadit.api.LoadResult;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.UUID;
@@ -35,7 +33,10 @@ class AccessListener<D, S> implements Listener {
         if (!result.isLoaded()) {
             loadit.debug("Cannot load data for " + uuid + " (" + name + ") (" + result + ")");
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result, uuid, name));
+            return;
         }
+
+        loadit.schedulePreJoinCleanup(uuid, name);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -58,48 +59,13 @@ class AccessListener<D, S> implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void firstLogin(PlayerLoginEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-
-        if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
-            loadit.debug(uuid + " (" + player.getName() + ") has been disallowed from joining the server, removing his data...");
-            registry.removeData(uuid, true);
-            return;
-        }
-
-        loadit.debug("Associating data for " + uuid + " (" + player.getName() + ")");
-        LoadResult result = registry.setupPlayer(player);
-
-        if (!result.isLoaded()) {
-            loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ") (" + result + ")");
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(result, uuid, player.getName()));
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void highLogin(PlayerLoginEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-
-        if (event.getResult() == PlayerLoginEvent.Result.ALLOWED && !registry.hasData(uuid)) {
-            loadit.debug(uuid + " (" + player.getName() + ") has been re-allowed in Login but data is not loaded!");
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, loadit.kickMessage(LoadResult.LOGIN_REALLOWED, uuid, player.getName()));
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void lastLogin(PlayerLoginEvent event) {
-        if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
-            loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he won't join the server during Login");
-            registry.removeData(event.getPlayer().getUniqueId(), true);
-        }
-    }
-
     @EventHandler(priority = EventPriority.MONITOR)
     public void quit(PlayerQuitEvent event) {
-        loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he quit the server");
-        registry.removeData(event.getPlayer().getUniqueId(), true);
+        connectionClosed(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+    }
+
+    void connectionClosed(UUID uuid, String name) {
+        loadit.debug("Removing data for " + uuid + " (" + name + ") since the connection was closed");
+        registry.removeData(uuid, true);
     }
 }
