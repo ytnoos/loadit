@@ -17,6 +17,7 @@ public final class LoadResult {
     public static final LoadResult LOGIN_REALLOWED = new LoadResult(Type.LOGIN_REALLOWED);
     private final Type type;
     private final @Nullable Throwable cause;
+
     private LoadResult(Type type, @Nullable Throwable cause) {
         this.type = type;
         this.cause = cause;

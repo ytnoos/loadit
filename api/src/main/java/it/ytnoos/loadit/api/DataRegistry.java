@@ -78,7 +78,7 @@ public interface DataRegistry<D, S, P> {
      * @param uuid the player's unique id
      * @return a future containing the loaded data, or null if not found
      */
-    CompletableFuture<D> load(UUID uuid);
+    CompletableFuture<@Nullable D> load(UUID uuid);
 
     /**
      * Asynchronously loads data for the given player by name.
@@ -87,7 +87,7 @@ public interface DataRegistry<D, S, P> {
      * @param name the player's name
      * @return a future containing the loaded data, or null if not found
      */
-    CompletableFuture<D> load(String name);
+    CompletableFuture<@Nullable D> load(String name);
 
     /**
      * Iterates over all cached data entries.

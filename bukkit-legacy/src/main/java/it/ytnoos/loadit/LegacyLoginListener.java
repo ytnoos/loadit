@@ -13,10 +13,12 @@ final class LegacyLoginListener<D, S> implements Listener {
 
     private final LoaditImpl<D, S> loadit;
     private final LoaditDataRegistry<D, S> registry;
+    private final LoaditLoadCoordinator<D, S> coordinator;
 
-    LegacyLoginListener(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry) {
+    LegacyLoginListener(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry, LoaditLoadCoordinator<D, S> coordinator) {
         this.loadit = loadit;
         this.registry = registry;
+        this.coordinator = coordinator;
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -26,12 +28,12 @@ final class LegacyLoginListener<D, S> implements Listener {
 
         if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
             loadit.debug(uuid + " (" + player.getName() + ") has been disallowed from joining the server, removing his data...");
-            registry.removeData(uuid, true);
+            coordinator.removeData(uuid, true);
             return;
         }
 
         loadit.debug("Associating data for " + uuid + " (" + player.getName() + ")");
-        LoadResult result = registry.setupPlayer(player);
+        LoadResult result = coordinator.setupPlayer(player);
 
         if (!result.isLoaded()) {
             loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ") (" + result + ")");
@@ -54,7 +56,7 @@ final class LegacyLoginListener<D, S> implements Listener {
     public void lastLogin(PlayerLoginEvent event) {
         if (event.getResult() != PlayerLoginEvent.Result.ALLOWED) {
             loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he won't join the server during Login");
-            registry.removeData(event.getPlayer().getUniqueId(), true);
+            coordinator.removeData(event.getPlayer().getUniqueId(), true);
         }
     }
 }

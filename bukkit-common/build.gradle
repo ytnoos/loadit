@@ -5,5 +5,5 @@ plugins {
 dependencies {
     api(project(":api"))
 
-    compileOnlyApi(libs.spigot)
+    compileOnly(libs.spigot)
 }

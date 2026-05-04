@@ -2,17 +2,19 @@ package it.ytnoos.loadit;
 
 import org.bukkit.event.Listener;
 
+import java.util.List;
+
 final class LegacyLifecycleStrategy<D, S> implements LoaditLifecycleStrategy {
 
     private final LegacyLoginListener<D, S> loginListener;
 
-    LegacyLifecycleStrategy(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry) {
-        this.loginListener = new LegacyLoginListener<>(loadit, registry);
+    LegacyLifecycleStrategy(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry, LoaditLoadCoordinator<D, S> coordinator) {
+        this.loginListener = new LegacyLoginListener<>(loadit, registry, coordinator);
     }
 
     @Override
-    public Listener primaryListener() {
-        return loginListener;
+    public List<Listener> listeners() {
+        return List.of(loginListener);
     }
 
     @Override

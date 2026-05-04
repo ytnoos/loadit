@@ -2,13 +2,11 @@ package it.ytnoos.loadit;
 
 import org.bukkit.event.Listener;
 
+import java.util.List;
+
 public interface LoaditLifecycleStrategy {
 
-    Listener primaryListener();
-
-    default Listener secondaryListener() {
-        return null;
-    }
+    List<Listener> listeners();
 
     default boolean usesTimeoutCleanup() {
         return false;

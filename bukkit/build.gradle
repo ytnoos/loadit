@@ -7,4 +7,6 @@ dependencies {
     api(project(":bukkit-common"))
     implementation(project(":bukkit-legacy"))
     implementation(project(":bukkit-modern"))
+
+    compileOnly(libs.spigot)
 }

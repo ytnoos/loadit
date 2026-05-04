@@ -6,7 +6,7 @@ package it.ytnoos.loadit;
 public final class ModernPaperLifecycleStrategyFactory implements LoaditLifecycleStrategyFactory {
 
     @Override
-    public <D, S> LoaditLifecycleStrategy create(LoaditImpl<D, S> loadit, AccessListener<D, S> accessListener, LoaditDataRegistry<D, S> registry) {
-        return new ModernPaperLifecycleStrategy<>(loadit, accessListener, registry);
+    public <D, S> LoaditLifecycleStrategy create(LoaditImpl<D, S> loadit, AccessListener<D, S> accessListener, LoaditDataRegistry<D, S> registry, LoaditLoadCoordinator<D, S> coordinator) {
+        return new ModernPaperLifecycleStrategy<>(loadit, accessListener, registry, coordinator);
     }
 }

@@ -13,10 +13,12 @@ final class ModernJoinListener<D, S> implements Listener {
 
     private final LoaditImpl<D, S> loadit;
     private final LoaditDataRegistry<D, S> registry;
+    private final LoaditLoadCoordinator<D, S> coordinator;
 
-    ModernJoinListener(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry) {
+    ModernJoinListener(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry, LoaditLoadCoordinator<D, S> coordinator) {
         this.loadit = loadit;
         this.registry = registry;
+        this.coordinator = coordinator;
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -27,7 +29,7 @@ final class ModernJoinListener<D, S> implements Listener {
         if (registry.hasSession(uuid)) return;
 
         loadit.debug("Associating data for " + uuid + " (" + player.getName() + ") on join");
-        LoadResult result = registry.setupPlayer(player);
+        LoadResult result = coordinator.setupPlayer(player);
         if (result.isLoaded()) return;
 
         loadit.debug("Cannot associate data for " + uuid + " (" + player.getName() + ") on join (" + result + ")");
