@@ -72,7 +72,7 @@ public interface Loadit<D, S, P> {
      *
      * @param kickMessageProvider a function that takes a {@link LoadResult} and returns the kick message
      */
-    void setKickMessage(KickMessageProvider kickMessageProvider);
+    void kickMessage(KickMessageProvider kickMessageProvider);
 
     /**
      * Enables or disables debug logging.

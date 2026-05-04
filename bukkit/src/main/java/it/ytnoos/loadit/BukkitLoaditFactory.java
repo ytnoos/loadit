@@ -19,8 +19,8 @@ public final class BukkitLoaditFactory {
      *
      * @param plugin the owning plugin
      * @param loader the data loader
-     * @param <D> the persistent data type
-     * @param <S> the live session type
+     * @param <D>    the persistent data type
+     * @param <S>    the live session type
      * @return a configured BukkitLoadit
      */
     public static <D, S> BukkitLoadit<D, S> create(Plugin plugin, DataLoader<D, S, Player> loader) {
@@ -30,11 +30,11 @@ public final class BukkitLoaditFactory {
     /**
      * Creates a Bukkit loadit instance.
      *
-     * @param plugin the owning plugin
-     * @param loader the data loader
+     * @param plugin      the owning plugin
+     * @param loader      the data loader
      * @param parallelism the async loader parallelism
-     * @param <D> the persistent data type
-     * @param <S> the live session type
+     * @param <D>         the persistent data type
+     * @param <S>         the live session type
      * @return a configured BukkitLoadit
      */
     public static <D, S> BukkitLoadit<D, S> create(Plugin plugin, DataLoader<D, S, Player> loader, int parallelism) {

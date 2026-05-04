@@ -165,24 +165,7 @@ final class LoaditLoadCoordinator<D, S> {
             if (!addedLoading) return LoadResult.ALREADY_LOADING;
             if (stopping) return LoadResult.ERROR;
 
-            if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
-
-            if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR;
-
-            D userData = loader.getOrCreate(uuid, name);
-            if (userData == null) return LoadResult.ERROR;
-
-            if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, connectionToken);
-
-            D previousValue = registry.putData(uuid, userData);
-            if (previousValue != null) loadit.log(Level.WARNING, uuid + " " + name + " was already loaded!");
-
-            if (!callListeners(listener -> listener.onPostLoad(userData))) {
-                removeData(uuid, false);
-                return LoadResult.ERROR;
-            }
-
-            return LoadResult.LOADED;
+            return loadDataAfterLock(uuid, name, connectionToken);
         } catch (LoadFailureException e) {
             return LoadResult.error(e);
         } catch (Exception e) {
@@ -193,12 +176,42 @@ final class LoaditLoadCoordinator<D, S> {
         }
     }
 
+    private LoadResult loadDataAfterLock(UUID uuid, String name, long connectionToken) {
+        if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
+        if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR;
+
+        D userData = loader.getOrCreate(uuid, name);
+        if (userData == null) return LoadResult.ERROR;
+
+        storeData(uuid, name, userData, connectionToken);
+        if (callListeners(listener -> listener.onPostLoad(userData))) return LoadResult.LOADED;
+
+        removeData(uuid, false);
+        return LoadResult.ERROR;
+    }
+
+    private void storeData(UUID uuid, String name, D userData, long connectionToken) {
+        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, connectionToken);
+
+        D previousValue = registry.putData(uuid, userData);
+        if (previousValue != null) loadit.log(Level.WARNING, uuid + " " + name + " was already loaded!");
+    }
+
     LoadResult setupPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         D userData = registry.data(uuid);
         if (userData == null) return LoadResult.NOT_LOADED;
 
-        S session = loader.startSession(userData, player);
+        S session;
+        try {
+            session = loader.startSession(userData, player);
+        } catch (LoadFailureException e) {
+            return LoadResult.error(e);
+        } catch (Exception e) {
+            loadit.log(Level.SEVERE, e, "Unable to start " + uuid + " " + player.getName() + " session");
+            return LoadResult.error(e);
+        }
+
         if (session == null) return LoadResult.NOT_LOADED;
 
         registry.putSession(uuid, session);
@@ -235,8 +248,6 @@ final class LoaditLoadCoordinator<D, S> {
         private final AtomicLong tokens = new AtomicLong();
 
         void schedule(UUID uuid, String name, long connectionToken) {
-            cancel(uuid);
-
             long cleanupToken = tokens.incrementAndGet();
             BukkitTask bukkitTask = loadit.plugin().getServer().getScheduler().runTaskLater(loadit.plugin(), () -> cleanup(uuid, name, cleanupToken), CLEANUP_TIMEOUT_SECONDS * 20L);
             CleanupTask cleanupTask = new CleanupTask(cleanupToken, connectionToken, bukkitTask);

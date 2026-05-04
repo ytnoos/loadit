@@ -15,7 +15,7 @@ class AccessListener<D, S> implements Listener {
     private final LoaditImpl<D, S> loadit;
     private final LoaditDataRegistry<D, S> registry;
     private final LoaditLoadCoordinator<D, S> coordinator;
-    // Bukkit calls every priority handler for the same AsyncPlayerPreLoginEvent on the firing thread.
+    // Carries the LOW-priority load result through HIGHEST and MONITOR for the same event thread.
     private final ThreadLocal<@Nullable LoadedPreLogin> loadedPreLogin = new ThreadLocal<>();
 
     AccessListener(LoaditImpl<D, S> loadit, LoaditDataRegistry<D, S> registry, LoaditLoadCoordinator<D, S> coordinator) {

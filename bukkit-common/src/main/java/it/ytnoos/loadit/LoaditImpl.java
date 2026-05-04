@@ -16,14 +16,13 @@ import java.util.logging.Logger;
 
 public class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
 
+    private static final String LOG_PREFIX = "[Loadit] ";
     private final Plugin plugin;
     private final LoaditDataRegistry<D, S> registry;
     private final LoaditLoadCoordinator<D, S> coordinator;
     private final AccessListener<D, S> listener;
     private final LoaditLifecycleStrategy strategy;
     private final List<LoaditLoadListener<D, S>> pluginListeners = new CopyOnWriteArrayList<>();
-
-    private static final String LOG_PREFIX = "[Loadit] ";
     private KickMessageProvider kickMessageProvider = LoaditImpl::defaultKickMessage;
     private boolean debug = false;
     private boolean initialized = false;
@@ -107,6 +106,10 @@ public class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
         strategy.listeners().forEach(listener -> plugin.getServer().getPluginManager().registerEvents(listener, plugin));
 
+        loadOnlinePlayers();
+    }
+
+    private void loadOnlinePlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             LoadResult result = coordinator.loadData(player.getUniqueId(), player.getName());
             if (result.isLoaded()) {
@@ -124,7 +127,7 @@ public class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
     }
 
     @Override
-    public void setKickMessage(KickMessageProvider kickMessageProvider) {
+    public void kickMessage(KickMessageProvider kickMessageProvider) {
         this.kickMessageProvider = kickMessageProvider;
     }
 
