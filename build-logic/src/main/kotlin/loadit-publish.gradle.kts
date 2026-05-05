@@ -4,8 +4,6 @@ plugins {
     `maven-publish`
 }
 
-val buildVersion: String by project.extra
-
 java {
     withJavadocJar()
     withSourcesJar()
@@ -16,7 +14,7 @@ publishing {
         create<MavenPublication>("loadit") {
             from(components["java"])
 
-            version = buildVersion
+            version = project.version.toString()
         }
     }
 
@@ -25,7 +23,8 @@ publishing {
             name = "coralmc"
             val base = "https://repo.coralmc.it"
             val releasesRepoUrl = "$base/releases/"
-            setUrl(releasesRepoUrl)
+            val snapshotsRepoUrl = "$base/snapshots/"
+            setUrl(if (project.version.toString().contains("-dev.")) snapshotsRepoUrl else releasesRepoUrl)
         }
     }
 }

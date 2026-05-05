@@ -7,7 +7,23 @@ plugins {
 }
 
 group = "it.ytnoos.loadit"
-version = project.extra["buildVersion"] as String
+version = run {
+    val describe = try {
+        providers.exec { commandLine("git", "describe", "--tags", "--long", "--match", "v*") }.standardOutput.asText.get().trim()
+    } catch (_: Exception) {
+        throw GradleException(
+            "No version tag found. Run: git fetch --tags\n" +
+                    "If this is a fresh repo, create an initial tag: ./scripts/release.sh <version>"
+        )
+    }
+
+    val match = Regex("""^v(.+)-(\d+)-g(.+)$""").matchEntire(describe) ?: throw GradleException("Unexpected version format: $describe")
+    val base = match.groupValues[1]
+    val commits = match.groupValues[2].toInt()
+    val hash = match.groupValues[3]
+
+    if (commits == 0) base else "$base-dev.$commits.$hash"
+}
 
 repositories {
     mavenCentral()
