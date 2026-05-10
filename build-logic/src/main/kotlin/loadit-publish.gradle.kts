@@ -4,14 +4,13 @@ plugins {
     `maven-publish`
 }
 
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
+// Modules without any public types (pure implementation modules) opt out of Javadoc generation
+// by setting `loadit.publishJavadoc` to false in their build script. Sources are always published.
+val publishJavadoc = (findProperty("loadit.publishJavadoc") as String?)?.toBoolean() ?: true
 
-// Some internal modules expose no public types; tolerate the resulting Javadoc "no classes" failure.
-tasks.withType<Javadoc>().configureEach {
-    isFailOnError = false
+java {
+    if (publishJavadoc) withJavadocJar()
+    withSourcesJar()
 }
 
 publishing {
