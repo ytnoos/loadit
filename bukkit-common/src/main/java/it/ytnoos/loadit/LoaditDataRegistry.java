@@ -13,12 +13,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-/**
- *
- * @param <D> Type for offline/logging players (data)
- * @param <S> Type for online players (session)
- */
-public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
+final class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
 
     private final DataLoader<D, S, Player> loader;
     private final ExecutorService loaderExecutor;
@@ -107,11 +102,11 @@ public class LoaditDataRegistry<D, S> implements DataRegistry<D, S, Player> {
         data.clear();
     }
 
-    public boolean hasData(UUID uuid) {
+    boolean hasData(UUID uuid) {
         return data.containsKey(uuid);
     }
 
-    public boolean hasSession(UUID uuid) {
+    boolean hasSession(UUID uuid) {
         return sessions.containsKey(uuid);
     }
 

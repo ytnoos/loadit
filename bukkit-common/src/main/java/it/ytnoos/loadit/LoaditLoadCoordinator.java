@@ -5,7 +5,6 @@ import it.ytnoos.loadit.api.LoadFailureException;
 import it.ytnoos.loadit.api.LoadResult;
 import it.ytnoos.loadit.api.LoaditLoadListener;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Set;
@@ -30,6 +29,7 @@ final class LoaditLoadCoordinator<D, S> {
     private final DataLoader<D, S, Player> loader;
     private final LoaditDataRegistry<D, S> registry;
     private final ExecutorService loaderExecutor;
+    private final LoaditScheduler scheduler;
     // Guards loader.getOrCreate from running twice for the same UUID.
     private final Set<UUID> loading = ConcurrentHashMap.newKeySet();
     // Identifies the pre-login data owner for stale cleanup tasks.
@@ -38,11 +38,12 @@ final class LoaditLoadCoordinator<D, S> {
     private volatile boolean stopping;
     private @Nullable TimeoutCleanup timeoutCleanup;
 
-    LoaditLoadCoordinator(BukkitLoadit<D, S> loadit, DataLoader<D, S, Player> loader, LoaditDataRegistry<D, S> registry, ExecutorService loaderExecutor) {
+    LoaditLoadCoordinator(BukkitLoadit<D, S> loadit, DataLoader<D, S, Player> loader, LoaditDataRegistry<D, S> registry, ExecutorService loaderExecutor, LoaditScheduler scheduler) {
         this.loadit = loadit;
         this.loader = loader;
         this.registry = registry;
         this.loaderExecutor = loaderExecutor;
+        this.scheduler = scheduler;
     }
 
     static <D, S> ExecutorService createExecutor(BukkitLoadit<D, S> loadit, int parallelism) {
@@ -249,8 +250,8 @@ final class LoaditLoadCoordinator<D, S> {
 
         void schedule(UUID uuid, String name, long connectionToken) {
             long cleanupToken = tokens.incrementAndGet();
-            BukkitTask bukkitTask = loadit.plugin().getServer().getScheduler().runTaskLater(loadit.plugin(), () -> cleanup(uuid, name, cleanupToken), CLEANUP_TIMEOUT_SECONDS * 20L);
-            CleanupTask cleanupTask = new CleanupTask(cleanupToken, connectionToken, bukkitTask);
+            LoaditScheduledTask scheduledTask = scheduler.runAsyncDelayed(() -> cleanup(uuid, name, cleanupToken), CLEANUP_TIMEOUT_SECONDS * 20L);
+            CleanupTask cleanupTask = new CleanupTask(cleanupToken, connectionToken, scheduledTask);
 
             CleanupTask previous = cleanupTasks.put(uuid, cleanupTask);
             if (previous != null) previous.task().cancel();
@@ -299,7 +300,7 @@ final class LoaditLoadCoordinator<D, S> {
             if (task != null) task.task().cancel();
         }
 
-        private record CleanupTask(long cleanupToken, long connectionToken, BukkitTask task) {
+        private record CleanupTask(long cleanupToken, long connectionToken, LoaditScheduledTask task) {
         }
     }
 }

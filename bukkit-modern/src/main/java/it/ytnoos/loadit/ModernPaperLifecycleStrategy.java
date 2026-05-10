@@ -9,8 +9,12 @@ final class ModernPaperLifecycleStrategy<D, S> implements LoaditLifecycleStrateg
     private final PaperConnectionCloseListener<D, S> connectionCloseListener;
     private final ModernJoinListener<D, S> joinListener;
 
-    ModernPaperLifecycleStrategy(LoaditImpl<D, S> loadit, AccessListener<D, S> accessListener, LoaditDataRegistry<D, S> registry, LoaditLoadCoordinator<D, S> coordinator) {
-        this.connectionCloseListener = new PaperConnectionCloseListener<>(loadit.plugin(), accessListener::connectionClosed);
+    ModernPaperLifecycleStrategy(LoaditImpl<D, S> loadit,
+                                 AccessListener<D, S> accessListener,
+                                 LoaditDataRegistry<D, S> registry,
+                                 LoaditLoadCoordinator<D, S> coordinator,
+                                 LoaditScheduler scheduler) {
+        this.connectionCloseListener = new PaperConnectionCloseListener<>(scheduler, accessListener::connectionClosed);
         this.joinListener = new ModernJoinListener<>(loadit, registry, coordinator);
     }
 

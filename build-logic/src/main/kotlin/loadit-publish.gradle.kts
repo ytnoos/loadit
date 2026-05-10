@@ -9,6 +9,11 @@ java {
     withSourcesJar()
 }
 
+// Some internal modules expose no public types; tolerate the resulting Javadoc "no classes" failure.
+tasks.withType<Javadoc>().configureEach {
+    isFailOnError = false
+}
+
 publishing {
     publications {
         create<MavenPublication>("loadit") {

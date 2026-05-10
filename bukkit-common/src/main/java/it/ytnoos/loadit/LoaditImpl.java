@@ -14,10 +14,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
+final class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
 
     private static final String LOG_PREFIX = "[Loadit] ";
     private final Plugin plugin;
+    private final LoaditScheduler scheduler;
     private final LoaditDataRegistry<D, S> registry;
     private final LoaditLoadCoordinator<D, S> coordinator;
     private final AccessListener<D, S> listener;
@@ -28,14 +29,19 @@ public class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
     private boolean initialized = false;
     private boolean stopped = false;
 
-    protected LoaditImpl(Plugin plugin, DataLoader<D, S, Player> loader, int parallelism, LoaditLifecycleStrategyFactory lifecycleStrategyFactory) {
+    LoaditImpl(Plugin plugin, DataLoader<D, S, Player> loader, int parallelism, LoaditLifecycleStrategyFactory lifecycleStrategyFactory) {
         this.plugin = plugin;
+        this.scheduler = LoaditScheduler.create(plugin);
 
         ExecutorService loaderExecutor = LoaditLoadCoordinator.createExecutor(this, parallelism);
         registry = new LoaditDataRegistry<>(loader, loaderExecutor);
-        coordinator = new LoaditLoadCoordinator<>(this, loader, registry, loaderExecutor);
+        coordinator = new LoaditLoadCoordinator<>(this, loader, registry, loaderExecutor, scheduler);
         listener = new AccessListener<>(this, registry, coordinator);
-        strategy = lifecycleStrategyFactory.create(this, listener, registry, coordinator);
+        strategy = lifecycleStrategyFactory.create(this, listener, registry, coordinator, scheduler);
+    }
+
+    LoaditScheduler scheduler() {
+        return scheduler;
     }
 
     private static String defaultKickMessage(LoadResult result, UUID uuid, String name) {
