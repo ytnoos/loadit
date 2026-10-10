@@ -35,6 +35,13 @@ final class LoaditLoadCoordinator<D, S> {
     // Identifies the pre-login data owner for stale cleanup tasks.
     private final ConcurrentMap<UUID, Long> connectionTokens = new ConcurrentHashMap<>();
     private final AtomicLong connectionTokenGenerator = new AtomicLong();
+    // The player instance (one per connection) that owns each session: only its quit removes the data.
+    private final ConcurrentMap<UUID, Player> sessionOwners = new ConcurrentHashMap<>();
+    // Paper also reports connection closes, before or after the quit of a joined player: these tell them apart
+    // from the close of a login that never joined.
+    private final Set<UUID> closedBeforeQuit = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> closesAfterQuit = ConcurrentHashMap.newKeySet();
+    private volatile boolean connectionCloseEvents;
     private volatile boolean stopping;
     private @Nullable TimeoutCleanup timeoutCleanup;
 
@@ -77,6 +84,9 @@ final class LoaditLoadCoordinator<D, S> {
                 this.timeoutCleanup = null;
             }
             connectionTokens.clear();
+            sessionOwners.clear();
+            closedBeforeQuit.clear();
+            closesAfterQuit.clear();
             loading.clear();
             registry.clear();
         }
@@ -111,6 +121,10 @@ final class LoaditLoadCoordinator<D, S> {
         }
     }
 
+    void connectionCloseEvents(boolean enabled) {
+        connectionCloseEvents = enabled;
+    }
+
     long createConnectionToken() {
         return connectionTokenGenerator.incrementAndGet();
     }
@@ -133,6 +147,7 @@ final class LoaditLoadCoordinator<D, S> {
     void removeData(UUID uuid, boolean session) {
         cancelCleanup(uuid);
         connectionTokens.remove(uuid);
+        if (session) sessionOwners.remove(uuid);
         notifyUnload(registry.removeData(uuid, session));
     }
 
@@ -141,6 +156,27 @@ final class LoaditLoadCoordinator<D, S> {
         // Another connection may have already replaced this UUID's data.
         if (!connectionTokens.remove(uuid, connectionToken)) return;
         notifyUnload(registry.removeData(uuid, session));
+    }
+
+    void playerQuit(Player player) {
+        UUID uuid = player.getUniqueId();
+        // Only the connection owning the session removes the data: an older connection, kicked because a newer one
+        // logged in, must not remove the data the newer connection has just loaded.
+        if (!sessionOwners.remove(uuid, player)) return;
+        if (connectionCloseEvents && !closedBeforeQuit.remove(uuid)) closesAfterQuit.add(uuid);
+        removeData(uuid, true);
+    }
+
+    void connectionClosed(UUID uuid) {
+        // The late close of a joined connection that already quit: its quit removed the data.
+        if (closesAfterQuit.remove(uuid)) return;
+        // A joined connection closing before its quit: the quit removes the data.
+        if (registry.hasSession(uuid)) {
+            closedBeforeQuit.add(uuid);
+            return;
+        }
+        // A login that never joined: its data has no session.
+        removeData(uuid, false);
     }
 
     private void notifyUnload(@Nullable D userData) {
@@ -231,6 +267,7 @@ final class LoaditLoadCoordinator<D, S> {
             return LoadResult.NOT_LOADED;
         }
 
+        sessionOwners.put(uuid, player);
         return LoadResult.LOADED;
     }
 

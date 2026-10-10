@@ -22,4 +22,9 @@ final class ModernPaperLifecycleStrategy<D, S> implements LoaditLifecycleStrateg
     public List<Listener> listeners() {
         return List.of(connectionCloseListener, joinListener);
     }
+
+    @Override
+    public boolean reportsConnectionClose() {
+        return true;
+    }
 }
