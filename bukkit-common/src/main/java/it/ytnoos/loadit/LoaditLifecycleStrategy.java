@@ -19,9 +19,14 @@ interface LoaditLifecycleStrategy {
         return false;
     }
 
-    // The connection of an allowed pre-login.
+    // The connection of a pre-login.
     default @Nullable Object loginConnection(AsyncPlayerPreLoginEvent event) {
         return null;
+    }
+
+    // Whether a connection returned by loginConnection is still open.
+    default boolean isConnected(Object connection) {
+        return true;
     }
 
     // Closes a validated login connection, so that its close event removes its data.

@@ -34,7 +34,7 @@ class AccessListener<D, S> implements Listener {
 
         loadit.debug("Loading data for " + uuid + " (" + name + ")");
         long connectionToken = coordinator.createConnectionToken();
-        LoadResult result = coordinator.loadData(uuid, name, connectionToken);
+        LoadResult result = coordinator.loadData(uuid, name, connectionToken, coordinator.loginConnection(event));
 
         if (!result.isLoaded()) {
             loadit.debug("Cannot load data for " + uuid + " (" + name + ") (" + result + ")");
@@ -70,26 +70,23 @@ class AccessListener<D, S> implements Listener {
         LoadedPreLogin loaded = loadedPreLogin.get();
         loadedPreLogin.remove();
 
-        if (loaded == null) return;
-
         //Player won't join the server, we clear his offline data
-        if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
+        if (loaded != null && event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             loadit.debug("Removing data for " + loaded.uuid() + " (" + event.getName() + ") since he won't join the server during AsyncLogin");
             coordinator.removeConnectionData(loaded.uuid(), loaded.connectionToken(), false);
-            return;
         }
-
-        coordinator.preLoginAllowed(loaded.uuid(), loaded.connectionToken(), event);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void quit(PlayerQuitEvent event) {
-        connectionClosed(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+        UUID uuid = event.getPlayer().getUniqueId();
+        loadit.debug("Removing data for " + uuid + " (" + event.getPlayer().getName() + ") since the player quit");
+        coordinator.removeData(uuid, true);
     }
 
     void connectionClosed(UUID uuid, String name) {
         loadit.debug("Removing data for " + uuid + " (" + name + ") since the connection was closed");
-        coordinator.removeData(uuid, true);
+        coordinator.connectionClosed(uuid);
     }
 
     private record LoadedPreLogin(UUID uuid, long connectionToken) {

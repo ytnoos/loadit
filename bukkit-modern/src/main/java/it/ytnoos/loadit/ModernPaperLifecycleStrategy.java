@@ -55,10 +55,16 @@ final class ModernPaperLifecycleStrategy<D, S> implements LoaditLifecycleStrateg
         return LOGIN_CONNECTIONS ? event.getConnection() : null;
     }
 
+    // A closed connection is never ticked again, so it can't reach the next login phase.
+    @Override
+    public boolean isConnected(Object connection) {
+        return !(connection instanceof PlayerConnection playerConnection) || playerConnection.isConnected();
+    }
+
     // Like a vanilla duplicate login: the older connection is closed and its close event removes its data.
     @Override
     public void endLogin(Object connection) {
-        if (connection instanceof PlayerConnection playerConnection && playerConnection.isConnected()) {
+        if (isConnected(connection) && connection instanceof PlayerConnection playerConnection) {
             playerConnection.disconnect(Component.translatable("multiplayer.disconnect.duplicate_login"));
         }
     }

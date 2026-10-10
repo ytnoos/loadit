@@ -122,13 +122,9 @@ final class LoaditLoadCoordinator<D, S> {
         return connectionTokenGenerator.incrementAndGet();
     }
 
-    // Other MONITOR listeners may still be running: the login can't be ended until its connection is validated.
-    void preLoginAllowed(UUID uuid, long connectionToken, AsyncPlayerPreLoginEvent event) {
+    @Nullable Object loginConnection(AsyncPlayerPreLoginEvent event) {
         LoaditLifecycleStrategy strategy = this.strategy;
-        Object connection = strategy == null ? null : strategy.loginConnection(event);
-        if (connection == null) return;
-
-        connectionTokens.computeIfPresent(uuid, (key, login) -> login.token() == connectionToken ? new Login(connectionToken, connection, false) : login);
+        return strategy == null ? null : strategy.loginConnection(event);
     }
 
     // The pre-login of this connection has completed: from now on it can only join or close.
@@ -157,6 +153,24 @@ final class LoaditLoadCoordinator<D, S> {
         notifyUnload(registry.removeData(uuid, session));
     }
 
+    /**
+     * A login connection closed. The data may already belong to a newer login of the same UUID, when this connection
+     * was released before its close event: that data is kept while the newer connection is open.
+     */
+    void connectionClosed(UUID uuid) {
+        Login login = connectionTokens.get(uuid);
+        if (login == null) {
+            removeData(uuid, true);
+            return;
+        }
+
+        LoaditLifecycleStrategy strategy = this.strategy;
+        Object connection = login.connection();
+        if (connection != null && strategy != null && strategy.isConnected(connection)) return;
+
+        removeConnectionData(uuid, login.token(), true);
+    }
+
     void removeConnectionData(UUID uuid, long connectionToken, boolean session) {
         cancelCleanup(uuid, connectionToken);
         // Another connection may have already replaced this UUID's data.
@@ -175,10 +189,10 @@ final class LoaditLoadCoordinator<D, S> {
     }
 
     LoadResult loadData(UUID uuid, String name) {
-        return loadData(uuid, name, NO_CONNECTION_TOKEN);
+        return loadData(uuid, name, NO_CONNECTION_TOKEN, null);
     }
 
-    LoadResult loadData(UUID uuid, String name, long connectionToken) {
+    LoadResult loadData(UUID uuid, String name, long connectionToken, @Nullable Object connection) {
         boolean addedLoading = false;
 
         try {
@@ -188,7 +202,7 @@ final class LoaditLoadCoordinator<D, S> {
             if (!addedLoading) return LoadResult.ALREADY_LOADING;
             if (stopping) return LoadResult.ERROR;
 
-            return loadDataAfterLock(uuid, name, connectionToken);
+            return loadDataAfterLock(uuid, name, connectionToken, connection);
         } catch (LoadFailureException e) {
             return LoadResult.error(e);
         } catch (Exception e) {
@@ -201,8 +215,9 @@ final class LoaditLoadCoordinator<D, S> {
 
     /**
      * The data belongs to another login of the same UUID. If that login never joined, closes its connection once it
-     * has been validated, then waits for its close or its own outcome to remove the data: this login never removes
-     * it, so a login that is still joining keeps its data.
+     * has been validated, then waits for its close or its own outcome to remove the data, so a login that is still
+     * joining keeps its data. Only a connection that closed before being validated, which can't join anymore, has
+     * its data removed here.
      */
     private boolean awaitRelease(UUID uuid) {
         LoaditLifecycleStrategy strategy = this.strategy;
@@ -215,10 +230,15 @@ final class LoaditLoadCoordinator<D, S> {
             if (registry.hasSession(uuid) || stopping || System.nanoTime() > deadline) return false;
 
             Login login = connectionTokens.get(uuid);
-            Object connection = login == null || !login.validated() ? null : login.connection();
-            if (connection != null && login.token() != requested) {
-                requested = login.token();
-                strategy.endLogin(connection);
+            Object connection = login == null ? null : login.connection();
+            if (connection != null) {
+                if (!login.validated() && !strategy.isConnected(connection)) {
+                    // Closed during its pre-login: it can't join anymore, and Paper fires no close event for it.
+                    removeConnectionData(uuid, login.token(), false);
+                } else if (login.validated() && login.token() != requested) {
+                    requested = login.token();
+                    strategy.endLogin(connection);
+                }
             }
 
             try {
@@ -231,22 +251,22 @@ final class LoaditLoadCoordinator<D, S> {
         return true;
     }
 
-    private LoadResult loadDataAfterLock(UUID uuid, String name, long connectionToken) {
+    private LoadResult loadDataAfterLock(UUID uuid, String name, long connectionToken, @Nullable Object connection) {
         if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
         if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR;
 
         D userData = loader.getOrCreate(uuid, name);
         if (userData == null) return LoadResult.ERROR;
 
-        storeData(uuid, name, userData, connectionToken);
+        storeData(uuid, name, userData, connectionToken, connection);
         if (callListeners(listener -> listener.onPostLoad(userData))) return LoadResult.LOADED;
 
         removeData(uuid, false);
         return LoadResult.ERROR;
     }
 
-    private void storeData(UUID uuid, String name, D userData, long connectionToken) {
-        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, new Login(connectionToken, null, false));
+    private void storeData(UUID uuid, String name, D userData, long connectionToken, @Nullable Object connection) {
+        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, new Login(connectionToken, connection, false));
 
         D previousValue = registry.putData(uuid, userData);
         if (previousValue != null) loadit.log(Level.WARNING, uuid + " " + name + " was already loaded!");
@@ -358,7 +378,7 @@ final class LoaditLoadCoordinator<D, S> {
         }
     }
 
-    // connection: set once the pre-login is allowed, if the strategy can end logins
+    // connection: the login connection, if the strategy can end logins
     private record Login(long token, @Nullable Object connection, boolean validated) {
     }
 }
