@@ -11,9 +11,4 @@ interface LoaditLifecycleStrategy {
     default boolean usesTimeoutCleanup() {
         return false;
     }
-
-    // whether the strategy reports closed connections to AccessListener#connectionClosed
-    default boolean reportsConnectionClose() {
-        return false;
-    }
 }

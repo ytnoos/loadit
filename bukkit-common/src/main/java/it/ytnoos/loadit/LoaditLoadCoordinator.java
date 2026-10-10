@@ -1,7 +1,5 @@
 package it.ytnoos.loadit;
 
-import com.google.common.collect.ConcurrentHashMultiset;
-import com.google.common.collect.Multiset;
 import it.ytnoos.loadit.api.DataLoader;
 import it.ytnoos.loadit.api.LoadFailureException;
 import it.ytnoos.loadit.api.LoadResult;
@@ -37,9 +35,6 @@ final class LoaditLoadCoordinator<D, S> {
     // Identifies the pre-login data owner for stale cleanup tasks.
     private final ConcurrentMap<UUID, Long> connectionTokens = new ConcurrentHashMap<>();
     private final AtomicLong connectionTokenGenerator = new AtomicLong();
-    // Pending closes that must not remove data: of a player that quit, or of a login whose data was replaced.
-    private final Multiset<UUID> ignoredCloses = ConcurrentHashMultiset.create();
-    private volatile boolean connectionCloseEvents;
     private volatile boolean stopping;
     private @Nullable TimeoutCleanup timeoutCleanup;
 
@@ -82,7 +77,6 @@ final class LoaditLoadCoordinator<D, S> {
                 this.timeoutCleanup = null;
             }
             connectionTokens.clear();
-            ignoredCloses.clear();
             loading.clear();
             registry.clear();
         }
@@ -117,10 +111,6 @@ final class LoaditLoadCoordinator<D, S> {
         }
     }
 
-    void connectionCloseEvents(boolean enabled) {
-        connectionCloseEvents = enabled;
-    }
-
     long createConnectionToken() {
         return connectionTokenGenerator.incrementAndGet();
     }
@@ -153,22 +143,6 @@ final class LoaditLoadCoordinator<D, S> {
         notifyUnload(registry.removeData(uuid, session));
     }
 
-    void playerQuit(UUID uuid) {
-        // Only a joined connection has a session and new logins are refused while it exists, so the data is its own.
-        ignoreNextClose(uuid);
-        removeData(uuid, true);
-    }
-
-    void connectionClosed(UUID uuid) {
-        // A session belongs to a joined connection, which removes its data on quit.
-        if (ignoredCloses.remove(uuid) || registry.hasSession(uuid)) return;
-        removeData(uuid, false);
-    }
-
-    private void ignoreNextClose(UUID uuid) {
-        if (connectionCloseEvents) ignoredCloses.add(uuid);
-    }
-
     private void notifyUnload(@Nullable D userData) {
         if (userData != null) notifyListeners(listener -> listener.onUnload(userData));
     }
@@ -186,6 +160,8 @@ final class LoaditLoadCoordinator<D, S> {
         boolean addedLoading = false;
 
         try {
+            if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
+
             addedLoading = loading.add(uuid);
             if (!addedLoading) return LoadResult.ALREADY_LOADING;
             if (stopping) return LoadResult.ERROR;
@@ -202,15 +178,7 @@ final class LoaditLoadCoordinator<D, S> {
     }
 
     private LoadResult loadDataAfterLock(UUID uuid, String name, long connectionToken) {
-        // A live session keeps its data until its quit saves it: the new connection has to retry.
-        if (registry.hasSession(uuid)) return LoadResult.ALREADY_LOADED;
-        if (registry.hasData(uuid)) {
-            // Left by a login that never joined: replace it instead of refusing logins until it's cleaned up.
-            loadit.log(Level.FINE, "Replacing data of " + uuid + " (" + name + ") left by a login that never joined");
-            // Ignore that login's close before removing its data, so it can't remove the new data.
-            ignoreNextClose(uuid);
-            removeData(uuid, false);
-        }
+        if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
         if (!callListeners(listener -> listener.onPreLoad(uuid, name))) return LoadResult.ERROR;
 
         D userData = loader.getOrCreate(uuid, name);

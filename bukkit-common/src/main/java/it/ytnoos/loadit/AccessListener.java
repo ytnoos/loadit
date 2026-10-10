@@ -79,13 +79,12 @@ class AccessListener<D, S> implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void quit(PlayerQuitEvent event) {
-        loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he quit");
-        coordinator.playerQuit(event.getPlayer().getUniqueId());
+        connectionClosed(event.getPlayer().getUniqueId(), event.getPlayer().getName());
     }
 
     void connectionClosed(UUID uuid, String name) {
-        loadit.debug("Connection of " + uuid + " (" + name + ") closed");
-        coordinator.connectionClosed(uuid);
+        loadit.debug("Removing data for " + uuid + " (" + name + ") since the connection was closed");
+        coordinator.removeData(uuid, true);
     }
 
     private record LoadedPreLogin(UUID uuid, long connectionToken) {
