@@ -6,4 +6,9 @@ dependencies {
     api(project(":api"))
 
     compileOnly(libs.spigot)
+
+    testImplementation(libs.spigot)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
