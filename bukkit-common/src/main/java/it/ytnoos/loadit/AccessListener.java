@@ -70,11 +70,16 @@ class AccessListener<D, S> implements Listener {
         LoadedPreLogin loaded = loadedPreLogin.get();
         loadedPreLogin.remove();
 
+        if (loaded == null) return;
+
         //Player won't join the server, we clear his offline data
-        if (loaded != null && event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
+        if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             loadit.debug("Removing data for " + loaded.uuid() + " (" + event.getName() + ") since he won't join the server during AsyncLogin");
             coordinator.removeConnectionData(loaded.uuid(), loaded.connectionToken(), false);
+            return;
         }
+
+        coordinator.preLoginAllowed(loaded.uuid(), loaded.connectionToken(), event);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

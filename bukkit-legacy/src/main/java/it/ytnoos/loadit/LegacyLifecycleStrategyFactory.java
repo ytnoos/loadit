@@ -11,6 +11,6 @@ final class LegacyLifecycleStrategyFactory implements LoaditLifecycleStrategyFac
                                                  LoaditDataRegistry<D, S> registry,
                                                  LoaditLoadCoordinator<D, S> coordinator,
                                                  LoaditScheduler scheduler) {
-        return new LegacyLifecycleStrategy<>(loadit, registry, coordinator);
+        return new LegacyLifecycleStrategy<>(loadit, registry, coordinator, scheduler);
     }
 }

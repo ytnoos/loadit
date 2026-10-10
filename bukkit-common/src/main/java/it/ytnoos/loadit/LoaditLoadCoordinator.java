@@ -5,6 +5,7 @@ import it.ytnoos.loadit.api.LoadFailureException;
 import it.ytnoos.loadit.api.LoadResult;
 import it.ytnoos.loadit.api.LoaditLoadListener;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Set;
@@ -23,6 +24,7 @@ import java.util.logging.Level;
 final class LoaditLoadCoordinator<D, S> {
 
     private static final long CLEANUP_TIMEOUT_SECONDS = 30L;
+    private static final long RELEASE_TIMEOUT_SECONDS = 3L;
     private static final long NO_CONNECTION_TOKEN = 0L;
 
     private final BukkitLoadit<D, S> loadit;
@@ -32,9 +34,10 @@ final class LoaditLoadCoordinator<D, S> {
     private final LoaditScheduler scheduler;
     // Guards loader.getOrCreate from running twice for the same UUID.
     private final Set<UUID> loading = ConcurrentHashMap.newKeySet();
-    // Identifies the pre-login data owner for stale cleanup tasks.
-    private final ConcurrentMap<UUID, Long> connectionTokens = new ConcurrentHashMap<>();
+    // Identifies the pre-login data owner for stale cleanup tasks and for newer logins of the same UUID.
+    private final ConcurrentMap<UUID, Login> connectionTokens = new ConcurrentHashMap<>();
     private final AtomicLong connectionTokenGenerator = new AtomicLong();
+    private @Nullable LoaditLifecycleStrategy strategy;
     private volatile boolean stopping;
     private @Nullable TimeoutCleanup timeoutCleanup;
 
@@ -111,8 +114,24 @@ final class LoaditLoadCoordinator<D, S> {
         }
     }
 
+    void strategy(LoaditLifecycleStrategy strategy) {
+        this.strategy = strategy;
+    }
+
     long createConnectionToken() {
         return connectionTokenGenerator.incrementAndGet();
+    }
+
+    // The pre-login owning the data has completed: from now on it can only join or close.
+    void preLoginAllowed(UUID uuid, long connectionToken, AsyncPlayerPreLoginEvent event) {
+        LoaditLifecycleStrategy strategy = this.strategy;
+        Object connection = strategy == null ? null : strategy.loginConnection(event);
+        connectionTokens.computeIfPresent(uuid, (key, login) -> login.token() == connectionToken ? new Login(connectionToken, true, connection) : login);
+    }
+
+    // Legacy: an allowed pre-login joins on the next server ticks, so one that still has no session has closed.
+    void endAbandonedLogin(UUID uuid, long connectionToken) {
+        if (!registry.hasSession(uuid)) removeConnectionData(uuid, connectionToken, false);
     }
 
     void scheduleCleanup(UUID uuid, String name, long connectionToken) {
@@ -139,7 +158,8 @@ final class LoaditLoadCoordinator<D, S> {
     void removeConnectionData(UUID uuid, long connectionToken, boolean session) {
         cancelCleanup(uuid, connectionToken);
         // Another connection may have already replaced this UUID's data.
-        if (!connectionTokens.remove(uuid, connectionToken)) return;
+        Login login = connectionTokens.get(uuid);
+        if (login == null || login.token() != connectionToken || !connectionTokens.remove(uuid, login)) return;
         notifyUnload(registry.removeData(uuid, session));
     }
 
@@ -148,8 +168,8 @@ final class LoaditLoadCoordinator<D, S> {
     }
 
     private boolean isConnectionTokenActive(UUID uuid, long connectionToken) {
-        Long activeToken = connectionTokens.get(uuid);
-        return activeToken != null && activeToken == connectionToken;
+        Login login = connectionTokens.get(uuid);
+        return login != null && login.token() == connectionToken;
     }
 
     LoadResult loadData(UUID uuid, String name) {
@@ -160,7 +180,7 @@ final class LoaditLoadCoordinator<D, S> {
         boolean addedLoading = false;
 
         try {
-            if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
+            if (registry.hasData(uuid) && !awaitRelease(uuid)) return LoadResult.ALREADY_LOADED;
 
             addedLoading = loading.add(uuid);
             if (!addedLoading) return LoadResult.ALREADY_LOADING;
@@ -175,6 +195,35 @@ final class LoaditLoadCoordinator<D, S> {
         } finally {
             if (addedLoading) loading.remove(uuid);
         }
+    }
+
+    /**
+     * The data belongs to another login of the same UUID. If that login never joined, asks it to end once its
+     * pre-login has completed, then waits for its own close or cleanup to remove the data: this login never removes
+     * it, so a login that is still joining keeps its data.
+     */
+    private boolean awaitRelease(UUID uuid) {
+        LoaditLifecycleStrategy strategy = this.strategy;
+        long requested = NO_CONNECTION_TOKEN;
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(RELEASE_TIMEOUT_SECONDS);
+
+        while (registry.hasData(uuid)) {
+            if (registry.hasSession(uuid) || stopping || strategy == null || System.nanoTime() > deadline) return false;
+
+            Login login = connectionTokens.get(uuid);
+            if (login != null && login.allowed() && login.token() != requested) {
+                requested = login.token();
+                strategy.endLogin(uuid, login.token(), login.connection());
+            }
+
+            try {
+                TimeUnit.MILLISECONDS.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return true;
     }
 
     private LoadResult loadDataAfterLock(UUID uuid, String name, long connectionToken) {
@@ -192,7 +241,7 @@ final class LoaditLoadCoordinator<D, S> {
     }
 
     private void storeData(UUID uuid, String name, D userData, long connectionToken) {
-        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, connectionToken);
+        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, new Login(connectionToken, false, null));
 
         D previousValue = registry.putData(uuid, userData);
         if (previousValue != null) loadit.log(Level.WARNING, uuid + " " + name + " was already loaded!");
@@ -302,5 +351,9 @@ final class LoaditLoadCoordinator<D, S> {
 
         private record CleanupTask(long cleanupToken, long connectionToken, LoaditScheduledTask task) {
         }
+    }
+
+    // connection: the platform handle of the pre-login, once allowed, if the strategy provides one
+    private record Login(long token, boolean allowed, @Nullable Object connection) {
     }
 }

@@ -109,6 +109,7 @@ final class LoaditImpl<D, S> implements BukkitLoadit<D, S> {
 
         initialized = true;
         coordinator.timeoutCleanup(strategy.usesTimeoutCleanup());
+        coordinator.strategy(strategy);
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
         strategy.listeners().forEach(listener -> plugin.getServer().getPluginManager().registerEvents(listener, plugin));
 
