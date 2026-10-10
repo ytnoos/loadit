@@ -160,11 +160,19 @@ final class LoaditLoadCoordinator<D, S> {
         boolean addedLoading = false;
 
         try {
-            if (registry.hasData(uuid)) return LoadResult.ALREADY_LOADED;
-
             addedLoading = loading.add(uuid);
             if (!addedLoading) return LoadResult.ALREADY_LOADING;
             if (stopping) return LoadResult.ERROR;
+
+            if (registry.hasData(uuid)) {
+                // A live session keeps its data until its quit saves it: the new connection has to retry.
+                if (registry.hasSession(uuid)) return LoadResult.ALREADY_LOADED;
+
+                // No session: left by a login that never joined (it dropped between pre-login and join, or is
+                // being superseded by this one). Refusing it would lock the player out until the stale cleanup.
+                loadit.log(Level.FINE, "Replacing data of " + uuid + " (" + name + ") left by a login that never joined");
+                removeData(uuid, false);
+            }
 
             return loadDataAfterLock(uuid, name, connectionToken);
         } catch (LoadFailureException e) {
