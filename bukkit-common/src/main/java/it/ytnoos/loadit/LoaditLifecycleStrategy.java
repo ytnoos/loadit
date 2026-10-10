@@ -5,7 +5,6 @@ import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
-import java.util.UUID;
 
 interface LoaditLifecycleStrategy {
 
@@ -15,12 +14,17 @@ interface LoaditLifecycleStrategy {
         return false;
     }
 
-    // The platform handle of an allowed pre-login, passed back to endLogin.
+    // Whether a login that never joined can be ended, through loginConnection and endLogin.
+    default boolean endsLogins() {
+        return false;
+    }
+
+    // The connection of an allowed pre-login.
     default @Nullable Object loginConnection(AsyncPlayerPreLoginEvent event) {
         return null;
     }
 
-    // Ends an allowed login that never joined, so that its own close or cleanup removes its data.
-    default void endLogin(UUID uuid, long connectionToken, @Nullable Object connection) {
+    // Closes a validated login connection, so that its close event removes its data.
+    default void endLogin(Object connection) {
     }
 }

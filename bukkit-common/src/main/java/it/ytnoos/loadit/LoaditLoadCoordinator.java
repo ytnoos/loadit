@@ -122,16 +122,18 @@ final class LoaditLoadCoordinator<D, S> {
         return connectionTokenGenerator.incrementAndGet();
     }
 
-    // The pre-login owning the data has completed: from now on it can only join or close.
+    // Other MONITOR listeners may still be running: the login can't be ended until its connection is validated.
     void preLoginAllowed(UUID uuid, long connectionToken, AsyncPlayerPreLoginEvent event) {
         LoaditLifecycleStrategy strategy = this.strategy;
         Object connection = strategy == null ? null : strategy.loginConnection(event);
-        connectionTokens.computeIfPresent(uuid, (key, login) -> login.token() == connectionToken ? new Login(connectionToken, true, connection) : login);
+        if (connection == null) return;
+
+        connectionTokens.computeIfPresent(uuid, (key, login) -> login.token() == connectionToken ? new Login(connectionToken, connection, false) : login);
     }
 
-    // Legacy: an allowed pre-login joins on the next server ticks, so one that still has no session has closed.
-    void endAbandonedLogin(UUID uuid, long connectionToken) {
-        if (!registry.hasSession(uuid)) removeConnectionData(uuid, connectionToken, false);
+    // The pre-login of this connection has completed: from now on it can only join or close.
+    void loginValidated(UUID uuid, Object connection) {
+        connectionTokens.computeIfPresent(uuid, (key, login) -> login.connection() == connection ? new Login(login.token(), connection, true) : login);
     }
 
     void scheduleCleanup(UUID uuid, String name, long connectionToken) {
@@ -198,22 +200,25 @@ final class LoaditLoadCoordinator<D, S> {
     }
 
     /**
-     * The data belongs to another login of the same UUID. If that login never joined, asks it to end once its
-     * pre-login has completed, then waits for its own close or cleanup to remove the data: this login never removes
+     * The data belongs to another login of the same UUID. If that login never joined, closes its connection once it
+     * has been validated, then waits for its close or its own outcome to remove the data: this login never removes
      * it, so a login that is still joining keeps its data.
      */
     private boolean awaitRelease(UUID uuid) {
         LoaditLifecycleStrategy strategy = this.strategy;
+        if (strategy == null || !strategy.endsLogins()) return false;
+
         long requested = NO_CONNECTION_TOKEN;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(RELEASE_TIMEOUT_SECONDS);
 
         while (registry.hasData(uuid)) {
-            if (registry.hasSession(uuid) || stopping || strategy == null || System.nanoTime() > deadline) return false;
+            if (registry.hasSession(uuid) || stopping || System.nanoTime() > deadline) return false;
 
             Login login = connectionTokens.get(uuid);
-            if (login != null && login.allowed() && login.token() != requested) {
+            Object connection = login == null || !login.validated() ? null : login.connection();
+            if (connection != null && login.token() != requested) {
                 requested = login.token();
-                strategy.endLogin(uuid, login.token(), login.connection());
+                strategy.endLogin(connection);
             }
 
             try {
@@ -241,7 +246,7 @@ final class LoaditLoadCoordinator<D, S> {
     }
 
     private void storeData(UUID uuid, String name, D userData, long connectionToken) {
-        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, new Login(connectionToken, false, null));
+        if (connectionToken != NO_CONNECTION_TOKEN) connectionTokens.put(uuid, new Login(connectionToken, null, false));
 
         D previousValue = registry.putData(uuid, userData);
         if (previousValue != null) loadit.log(Level.WARNING, uuid + " " + name + " was already loaded!");
@@ -353,7 +358,7 @@ final class LoaditLoadCoordinator<D, S> {
         }
     }
 
-    // connection: the platform handle of the pre-login, once allowed, if the strategy provides one
-    private record Login(long token, boolean allowed, @Nullable Object connection) {
+    // connection: set once the pre-login is allowed, if the strategy can end logins
+    private record Login(long token, @Nullable Object connection, boolean validated) {
     }
 }

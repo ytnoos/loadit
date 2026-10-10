@@ -6,16 +6,17 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 final class ModernPaperLifecycleStrategy<D, S> implements LoaditLifecycleStrategy {
 
-    // AsyncPlayerPreLoginEvent#getConnection is missing on older Paper versions.
+    // Login connections are exposed by AsyncPlayerPreLoginEvent and PlayerConnectionValidateLoginEvent since Paper 1.21.7.
     private static final boolean LOGIN_CONNECTIONS = hasLoginConnections();
 
     private final PaperConnectionCloseListener<D, S> connectionCloseListener;
     private final ModernJoinListener<D, S> joinListener;
+    private final PaperLoginValidateListener<D, S> validateListener;
 
     ModernPaperLifecycleStrategy(LoaditImpl<D, S> loadit,
                                  AccessListener<D, S> accessListener,
@@ -24,20 +25,29 @@ final class ModernPaperLifecycleStrategy<D, S> implements LoaditLifecycleStrateg
                                  LoaditScheduler scheduler) {
         this.connectionCloseListener = new PaperConnectionCloseListener<>(scheduler, accessListener::connectionClosed);
         this.joinListener = new ModernJoinListener<>(loadit, registry, coordinator);
+        this.validateListener = new PaperLoginValidateListener<>(coordinator);
     }
 
     private static boolean hasLoginConnections() {
         try {
             AsyncPlayerPreLoginEvent.class.getMethod("getConnection");
+            Class.forName("io.papermc.paper.event.connection.PlayerConnectionValidateLoginEvent");
             return true;
-        } catch (NoSuchMethodException e) {
+        } catch (NoSuchMethodException | ClassNotFoundException e) {
             return false;
         }
     }
 
     @Override
     public List<Listener> listeners() {
-        return List.of(connectionCloseListener, joinListener);
+        List<Listener> listeners = new ArrayList<>(List.of(connectionCloseListener, joinListener));
+        if (LOGIN_CONNECTIONS) listeners.add(validateListener);
+        return listeners;
+    }
+
+    @Override
+    public boolean endsLogins() {
+        return LOGIN_CONNECTIONS;
     }
 
     @Override
@@ -47,7 +57,7 @@ final class ModernPaperLifecycleStrategy<D, S> implements LoaditLifecycleStrateg
 
     // Like a vanilla duplicate login: the older connection is closed and its close event removes its data.
     @Override
-    public void endLogin(UUID uuid, long connectionToken, @Nullable Object connection) {
+    public void endLogin(Object connection) {
         if (connection instanceof PlayerConnection playerConnection && playerConnection.isConnected()) {
             playerConnection.disconnect(Component.translatable("multiplayer.disconnect.duplicate_login"));
         }
