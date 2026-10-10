@@ -80,7 +80,7 @@ class AccessListener<D, S> implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void quit(PlayerQuitEvent event) {
         loadit.debug("Removing data for " + event.getPlayer().getUniqueId() + " (" + event.getPlayer().getName() + ") since he quit");
-        coordinator.playerQuit(event.getPlayer());
+        coordinator.playerQuit(event.getPlayer().getUniqueId());
     }
 
     void connectionClosed(UUID uuid, String name) {
